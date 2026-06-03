@@ -25,6 +25,28 @@ Flame is very easy to setup and use. With built-in editors, it allows you to set
 
 ### With Docker (recommended)
 
+#### This fork (Flame Revamped) — pull from Docker Hub
+
+```sh
+docker pull <your-dockerhub-username>/flame-revamped:latest
+
+docker run -d \
+  --name flame \
+  -p 5005:5005 \
+  -v /path/to/data:/app/data \
+  -e PASSWORD='choose-a-strong-password' \
+  --restart unless-stopped \
+  <your-dockerhub-username>/flame-revamped:latest
+```
+
+> Set a strong `PASSWORD` — the app refuses to start without one and warns on the
+> old default. The `data` volume must persist so the auto-generated JWT signing key
+> (`data/secret.key`) survives restarts.
+>
+> Publishing your own image to Docker Hub is automated via GitHub Actions — see
+> [docs/DOCKER_PUBLISH.md](docs/DOCKER_PUBLISH.md).
+
+#### Upstream image (original Flame)
 
 ```sh
 # built with multiarch support
