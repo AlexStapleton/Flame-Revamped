@@ -1,6 +1,6 @@
 services:
   flame:
-    image: flame:custom
+    image: YOUR_DOCKERHUB_USERNAME/flame-revamped:latest
     container_name: flame
     volumes:
       - /path/to/host/data:/app/data
@@ -12,7 +12,7 @@ services:
     # secrets:
     #   - password # optional but required for (1)
     environment:
-      - PASSWORD=flame_password
+      - PASSWORD=change_me_to_a_strong_password
       # - PASSWORD_FILE=/run/secrets/password # optional but required for (1)
       # - WEATHER_CACHE_HOURS=6  #  optional to cut down calls to weather api
     restart: unless-stopped
