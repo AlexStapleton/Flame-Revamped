@@ -1,0 +1,28 @@
+# Dependencies
+node_modules
+client/node_modules
+
+# Runtime data (SQLite DB, secret.key, config.json, uploads, backups) — NEVER commit
+data
+*.sqlite
+secret.key
+
+# Secrets / environment
+.env
+.env.*
+!.env.example
+
+# Build output
+public
+client/dist
+dist
+
+# Logs
+log
+*.log
+npm-debug.log*
+
+# Editor / tooling
+.claude
+.DS_Store
+*.swp
