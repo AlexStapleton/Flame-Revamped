@@ -83,17 +83,19 @@ Public GET triggered an external API call using the stored key (quota abuse).
 
 ## 🟡 LOW (mostly admin-only / hardening)
 
-- **L1 — Client controls token lifetime.** `utils/signToken.js` passes the client's
-  `duration` straight to `expiresIn` with no cap → authed client can mint a multi-year token.
-  Cap server-side.
-- **L2 — Non-constant-time password compare** (`==`) in `controllers/auth/login.js`.
-  Use `crypto.timingSafeEqual` + strict `===`.
-- **L3 — SSRF via `dockerHost`** (`controllers/apps/docker/useDocker.js`) — admin-configurable
-  request target. Admin-only → low.
-- **L4 — `updateConfig` accepts arbitrary keys** (`controllers/config/updateConfig.js`) — no
-  whitelist; admin can pollute config. Admin-only → low.
-- **L5 — `.env.example` defaults to `NODE_ENV=development`** (verbose errors) for local/compose
-  users. The Docker image is unaffected (sets production, excludes `.env`).
+- **L1 — Client controls token lifetime — ✅ FIXED.** `utils/signToken.js` now allowlists
+  the duration to the values the UI offers (`1h/1d/14d/30d/1y`), defaulting to `14d`, so a
+  custom `duration` can't mint a never-expiring token.
+- **L2 — Non-constant-time password compare — ✅ FIXED.** `controllers/auth/login.js` now
+  compares fixed-length SHA-256 digests with `crypto.timingSafeEqual` (no length/timing leak).
+- **L3 — SSRF via `dockerHost`** (`controllers/apps/docker/useDocker.js`) —
+  **accepted (won't fix).** The Docker integration must reach the operator's configured
+  Docker host, and only an authenticated admin can set it (single-user app). Mitigating
+  further would break the feature.
+- **L4 — `updateConfig` accepts arbitrary keys — ✅ FIXED.** `controllers/config/updateConfig.js`
+  now only applies keys that already exist in the config, so unknown keys can't pollute it.
+- **L5 — `.env.example` `NODE_ENV` default — ✅ FIXED.** Example now defaults to `production`
+  (comment notes to use `development` only for local dev).
 
 ---
 
