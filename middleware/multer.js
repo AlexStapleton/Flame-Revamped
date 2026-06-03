@@ -1,4 +1,5 @@
 const fs = require('fs');
+const path = require('path');
 const multer = require('multer');
 
 if (!fs.existsSync('data/uploads')) {
@@ -10,7 +11,10 @@ const storage = multer.diskStorage({
     cb(null, './data/uploads');
   },
   filename: (req, file, cb) => {
-    cb(null, Date.now() + '--' + file.originalname);
+    // basename() strips any path components so a crafted originalname like
+    // "../../server.js" can't escape the uploads directory (path traversal).
+    const safeName = path.basename(file.originalname);
+    cb(null, Date.now() + '--' + safeName);
   },
 });
 

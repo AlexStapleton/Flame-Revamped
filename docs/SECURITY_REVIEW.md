@@ -9,8 +9,8 @@ highest-impact findings cluster there.
 
 > Bottom line: **Do not expose to the internet until H1, H2, and H3 are addressed.**
 >
-> **UPDATE 2026-06-03: All three HIGH items are now FIXED and verified (see ✅ notes
-> below). MEDIUM and LOW items remain open.**
+> **UPDATE 2026-06-03: All three HIGH items AND all four MEDIUM items are now FIXED and
+> verified (see ✅ notes below). LOW items remain open.**
 
 ---
 
@@ -49,29 +49,35 @@ whole app can be brute-forced.
 
 ---
 
-## 🟠 MEDIUM
+## 🟠 MEDIUM — ✅ all fixed
 
-### M1 — Weather API key sent over cleartext HTTP
-`utils/getExternalWeather.js` calls `http://api.weatherapi.com/v1/current.json?key=<KEY>...`.
-The key travels unencrypted and is interceptable on-path.
-- **Fix:** use `https://`.
+### M1 — Weather API key sent over cleartext HTTP — ✅ FIXED
+`utils/getExternalWeather.js` called `http://api.weatherapi.com/...?key=<KEY>`.
+- **Fix applied:** switched to `https://`.
 
-### M2 — Unauthenticated `/api/weather/update`
-`routes/weather.js` exposes a public GET that triggers an external API call using the stored
-key — abusable to exhaust the weather-API quota.
-- **Fix:** require auth; the scheduled job already refreshes weather.
+### M2 — Unauthenticated `/api/weather/update` — ✅ FIXED
+Public GET triggered an external API call using the stored key (quota abuse).
+- **Fix applied:** `routes/weather.js` now requires `auth, requireAuth`; the client
+  settings form sends auth on its refresh call. *Verified:* `401` without auth, passes
+  auth with a token (the scheduled job still refreshes weather independently).
 
-### M3 — No security headers
-`api.js` has no `helmet`/CSP — missing clickjacking protection (`X-Frame-Options`),
-`X-Content-Type-Options: nosniff`, etc.
-- **Fix:** add `helmet`, tuning CSP because custom CSS/themes are a feature.
+### M3 — No security headers — ✅ FIXED
+- **Fix applied:** `helmet` added in `api.js`. CSP is intentionally left **off** (Flame
+  loads icons from arbitrary user URLs and supports custom CSS/themes, which a strict CSP
+  would break); a tailored CSP is a possible future hardening that needs per-deployment
+  browser testing. *Verified:* responses now send `X-Frame-Options: SAMEORIGIN`,
+  `X-Content-Type-Options: nosniff`, `X-DNS-Prefetch-Control: off`, and `X-Powered-By`
+  is removed.
 
-### M4 — Upload filename unsanitized → path traversal + SVG stored-XSS
-`middleware/multer.js` stores `Date.now() + '--' + file.originalname` with no sanitization,
-so `../` in `originalname` can escape `data/uploads`; allowed SVG uploads served from
-`/uploads` can carry `<script>`. Post-auth (admin) only → medium.
-- **Fix:** `path.basename()` the stored name; serve `/uploads` with
-  `X-Content-Type-Options: nosniff` and/or sanitize SVGs.
+### M4 — Upload filename unsanitized → path traversal (+ SVG concern) — ✅ FIXED
+- **Fix applied:** `middleware/multer.js` now `path.basename()`s the original name, so
+  `../` can't escape `data/uploads`. `/uploads` is served with
+  `X-Content-Type-Options: nosniff` and `Content-Security-Policy: default-src 'none';
+  sandbox` so a malicious upload can't execute script if navigated to directly. *Verified:*
+  `basename('../../../server.js') → 'server.js'`; the hardening headers are present on
+  `/uploads`. (Note: the client has no runtime SVG-inlining loader, so the stored-SVG-XSS
+  vector is not actually reachable today; full SVG sanitization on upload remains a future
+  option if such a loader is ever added.)
 
 ---
 

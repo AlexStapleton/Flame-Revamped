@@ -14,7 +14,11 @@ import { ApiResponse, Weather, WeatherForm } from '../../../interfaces';
 import { InputGroup, Button, SettingsHeadline } from '../../UI';
 
 // Utils
-import { inputHandler, weatherSettingsTemplate } from '../../../utility';
+import {
+  applyAuth,
+  inputHandler,
+  weatherSettingsTemplate,
+} from '../../../utility';
 
 export const WeatherSettings = (): JSX.Element => {
   const { loading, config } = useSelector((state: State) => state.config);
@@ -54,7 +58,9 @@ export const WeatherSettings = (): JSX.Element => {
 
     // Update weather
     axios
-      .get<ApiResponse<Weather>>('/api/weather/update')
+      .get<ApiResponse<Weather>>('/api/weather/update', {
+        headers: applyAuth(),
+      })
       .then(() => {
         createNotification({
           title: 'Success',

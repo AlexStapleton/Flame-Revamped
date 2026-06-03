@@ -1,6 +1,7 @@
 const fs = require('fs');
 const { join } = require('path');
 const express = require('express');
+const helmet = require('helmet');
 const morgan = require('morgan');
 const { errorHandler } = require('./middleware');
 const healthRoutes = require('./routes/health');
@@ -12,6 +13,17 @@ const api = express();
 // logs see the real client IP. Defaults to off (safe when directly exposed);
 // set TRUST_PROXY=1 (or the hop count) when running behind a reverse proxy.
 api.set('trust proxy', Number(process.env.TRUST_PROXY) || false);
+
+// Security headers (clickjacking protection, nosniff, HSTS, etc.). CSP is left
+// off because Flame loads app/bookmark icons from arbitrary user-supplied URLs
+// and supports custom CSS/themes — a strict CSP would break those. COEP is off
+// to avoid blocking those cross-origin icons.
+api.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+  })
+);
 
 // Access logging — enables fail2ban and the /health log scan. Resolves to
 // /app/log/access.log inside the container. Health checks are skipped to avoid
@@ -33,7 +45,21 @@ api.use('/health', healthRoutes);
 
 // Static files
 api.use(express.static(join(__dirname, 'public')));
-api.use('/uploads', express.static(join(__dirname, 'data/uploads')));
+// Uploaded icons are user-supplied. Forbid MIME sniffing and sandbox them so a
+// malicious upload (e.g. an SVG/HTML file) can't execute script if navigated to
+// directly.
+api.use(
+  '/uploads',
+  express.static(join(__dirname, 'data/uploads'), {
+    setHeaders: (res) => {
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader(
+        'Content-Security-Policy',
+        "default-src 'none'; style-src 'unsafe-inline'; sandbox"
+      );
+    },
+  })
+);
 
 // Body parser
 api.use(express.json());
