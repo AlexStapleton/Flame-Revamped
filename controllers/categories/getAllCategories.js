@@ -3,17 +3,12 @@ const Category = require('../../models/Category');
 const Bookmark = require('../../models/Bookmark');
 const { Sequelize } = require('sequelize');
 const loadConfig = require('../../utils/loadConfig');
-const Logger = require('../../utils/Logger');
-const logger = new Logger();
 
 // @desc      Get all categories
 // @route     GET /api/categories
 // @access    Public
 const getAllCategories = asyncWrapper(async (req, res, next) => {
   const { useOrdering: orderType } = await loadConfig();
-
-  let categories;
-  let output;
 
   // categories visibility
   const where = req.isAuthenticated ? {} : { isPublic: true };
@@ -29,48 +24,26 @@ const getAllCategories = asyncWrapper(async (req, res, next) => {
           [{ model: Bookmark, as: 'bookmarks' }, orderType, 'ASC'],
         ];
 
-  try {
-    // between tuna-combo and legacy flame => hide app cats
-    // others ! extra fields
-    const augmentedWhere = { ...where, section: 'bookmarks' };
-    
-    categories = await Category.findAll({
-      include: [
-        {
-          model: Bookmark,
-          as: 'bookmarks',
-        },
-      ],
-      order,
-      where: augmentedWhere,
-    });
-  } catch (error) {
-    logger.log(
-      'Could not filter categories by "section" for Bookmarks. This is expected on legacy Flame schemas (not flame-dev:latest). Falling back to fetching all categories for the Bookmarks section.',
-      'WARNING'
-    );
+  // Note: the `section` column only exists on the tuna-combo fork's schema; on
+  // legacy/revamped Flame it doesn't, so we don't filter by it (the old attempt
+  // threw on every request and spammed a fallback warning).
+  const categories = await Category.findAll({
+    include: [{ model: Bookmark, as: 'bookmarks' }],
+    order,
+    where,
+  });
 
-    categories = await Category.findAll({
-      include: [
-        {
-          model: Bookmark,
-          as: 'bookmarks',
-        },
-      ],
-      order,
-      where,
-    });
-  }
-
+  let output;
   if (req.isAuthenticated) {
     output = categories;
   } else {
-    // filter out private bookmarks
-    output = categories.map((c) => c.get({ plain: true }));
-    output = output.map((c) => ({
-      ...c,
-      bookmarks: c.bookmarks.filter((b) => b.isPublic),
-    }));
+    // filter out private bookmarks for unauthenticated clients
+    output = categories
+      .map((c) => c.get({ plain: true }))
+      .map((c) => ({
+        ...c,
+        bookmarks: c.bookmarks.filter((b) => b.isPublic),
+      }));
   }
 
   res.status(200).json({
