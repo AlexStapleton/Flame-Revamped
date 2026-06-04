@@ -19,7 +19,7 @@ export const DockerSettings = (): JSX.Element => {
   const { loading, config } = useSelector((state: State) => state.config);
 
   const dispatch = useDispatch();
-  const { updateConfig } = bindActionCreators(actionCreators, dispatch);
+  const { updateConfig, syncApps } = bindActionCreators(actionCreators, dispatch);
 
   // Initial state
   const [formData, setFormData] = useState<DockerSettingsForm>(
@@ -117,6 +117,17 @@ export const DockerSettings = (): JSX.Element => {
       </InputGroup>
 
       <Button>Save changes</Button>
+
+      {/* Manually trigger a Docker/Kubernetes sync. Sync also runs on a
+          schedule, but this gives immediate feedback after changing settings. */}
+      {(formData.dockerApps || formData.kubernetesApps) && (
+        <Button
+          type="button"
+          click={() => syncApps()}
+        >
+          Sync now
+        </Button>
+      )}
     </form>
   );
 };

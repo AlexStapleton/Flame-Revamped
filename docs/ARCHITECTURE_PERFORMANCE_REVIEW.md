@@ -34,6 +34,44 @@
 
 ---
 
+## Round 2 (2026-06-03) — hardening, tests, CI
+
+Follow-up pass implementing the "what else" backlog. Branch `chore/hardening-tests-ci`.
+
+| Item | Change | Result |
+|------|--------|--------|
+| Auto-update persistence bug | `automaticUpdates`/`useDefaults`/`updateUrl`/`showPopups` were read by the UI but missing from `initialConfig.json`, so `updateConfig`'s allow-list silently dropped them → the setting couldn't be saved. Added them to `initialConfig.json` + the `Config` TS interface. | Setting now persists; types match runtime. |
+| Frontend code-split | Lazy-load Apps/Bookmarks/Settings routes; vite `manualChunks` vendor split (react/redux/dnd/mdi). | **Main bundle 3.2 MB → 280 KB (90 KB gzip).** Routes + vendors load on demand / cache independently. |
+| Dependency vulns (client) | `npm audit fix`. | **0 vulnerabilities.** |
+| Dependency vulns (server) | See "Accepted" below. | Documented, not force-fixed. |
+| Tests | `node:test` unit suites for the config cache, auth middleware, and the `signToken` duration allow-list. `npm test`. | **9 tests passing**, zero new deps. |
+| CI | `.github/workflows/ci.yml` runs server tests + client build on every PR/push. | Regressions caught pre-merge. |
+| Multi-arch image | Publish workflow now uses `Dockerfile.multiarch` + QEMU, builds `linux/amd64,linux/arm64`. | ARM (Raspberry Pi / ARM NAS) support. |
+| "Sync now" | `POST /api/apps/sync` wired into Docker settings (button shown when Docker/K8s is enabled); `Button` UI gained a `type` prop so the action doesn't submit the form. | On-demand sync from the UI. |
+
+### Accepted server-side vulnerabilities (not force-fixed)
+`npm audit` reports 13 server vulns whose only "fix" is a breaking major change that
+would break the app, so they are **deliberately not applied**:
+- `tar`, `cacache`, `@tootallnate/once` (high/moderate) — transitive under
+  `sqlite3 → node-gyp`; these are **install/build-time** tooling, not runtime code. The
+  suggested fix is `sqlite3@6.0.1` (a major DB-driver bump) — needs dedicated testing.
+- `uuid <11.1.1` (moderate) — transitive under `sequelize`; the suggested fix downgrades
+  to `sequelize@3` (years old, total breakage). **Do not apply.**
+- `ajv` (moderate, ReDoS) — deep transitive dev-tooling path.
+
+These should be revisited if/when `sqlite3` and `sequelize` ship non-breaking patched
+releases. None are reachable from untrusted runtime input today.
+
+### Known follow-up (not done this pass)
+- **`vendor-mdi` is still ~806 KB gzip.** The app bundles the full `@mdi/js` set to resolve
+  arbitrary user-chosen icon names. Trimming needs a dynamic/registry-based icon loader —
+  a dedicated change.
+- Removing the legacy `config` table and the now-redundant `clearWeatherData` job were
+  evaluated and **deferred**: the cleaner still prunes pre-existing multi-row weather data
+  on upgrade, and dropping the table is a destructive migration with little upside.
+
+---
+
 ## How the system fits together
 
 ```

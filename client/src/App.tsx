@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 
 // Redux
@@ -11,12 +11,21 @@ import { State } from './store/reducers';
 // Utils
 import { checkVersion, decodeToken, parsePABToTheme } from './utility';
 
-// Routes
+// Routes — Home is the landing page so it stays eager; the heavier admin
+// routes are code-split so the homepage doesn't pay for them on first load.
 import { Home } from './components/Home/Home';
-import { Apps } from './components/Apps/Apps';
-import { Settings } from './components/Settings/Settings';
-import { Bookmarks } from './components/Bookmarks/Bookmarks';
 import { NotificationCenter } from './components/NotificationCenter/NotificationCenter';
+import { Spinner } from './components/UI/Spinner/Spinner';
+
+const Apps = lazy(() =>
+  import('./components/Apps/Apps').then((m) => ({ default: m.Apps }))
+);
+const Settings = lazy(() =>
+  import('./components/Settings/Settings').then((m) => ({ default: m.Settings }))
+);
+const Bookmarks = lazy(() =>
+  import('./components/Bookmarks/Bookmarks').then((m) => ({ default: m.Bookmarks }))
+);
 
 // routing
 import { ProtectedRoute } from './components/Routing/ProtectedRoute';
@@ -88,6 +97,7 @@ export const App = (): JSX.Element => {
   return (
     <>
       <BrowserRouter>
+        <Suspense fallback={<Spinner />}>
           <Routes>
             {/* Public route */}
             <Route path="/" element={<Home />} />
@@ -116,6 +126,7 @@ export const App = (): JSX.Element => {
               }
             />
           </Routes>
+        </Suspense>
       </BrowserRouter>
       <NotificationCenter />
     </>

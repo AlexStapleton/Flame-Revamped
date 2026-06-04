@@ -32,4 +32,10 @@ export interface Config {
   isKilometer: boolean;
   weatherData: WeatherData;
   hideDate: boolean;
+  // Auto-update / "About" settings. Persisted in config.json (added to
+  // initialConfig.json so updateConfig's allow-list accepts them).
+  automaticUpdates: boolean;
+  useDefaults: boolean;
+  updateUrl: string;
+  showPopups: boolean;
 }
