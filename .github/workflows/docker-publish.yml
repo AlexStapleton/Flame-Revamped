@@ -68,5 +68,6 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # GHA cache disabled: the failed v1.2.0 multi-arch run appears to have
+          # written an incompatible cache that broke the subsequent amd64 builds.
+          # Dropping it removes that confound (builds are fast enough without it).
