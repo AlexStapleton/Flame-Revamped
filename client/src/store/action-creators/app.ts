@@ -35,6 +35,39 @@ export const getApps =
     }
   };
 
+export const syncApps =
+  () => async (dispatch: Dispatch<GetAppsAction<undefined | App[]>>) => {
+    try {
+      const res = await axios.post<ApiResponse<App[]>>(
+        '/api/apps/sync',
+        {},
+        { headers: applyAuth() }
+      );
+
+      dispatch({
+        type: ActionType.getAppsSuccess,
+        payload: res.data.data,
+      });
+
+      dispatch<any>({
+        type: ActionType.createNotification,
+        payload: {
+          title: 'Success',
+          message: 'Apps synced from Docker / Kubernetes',
+        },
+      });
+    } catch (err) {
+      console.log(err);
+      dispatch<any>({
+        type: ActionType.createNotification,
+        payload: {
+          title: 'Error',
+          message: 'App sync failed. Check Docker/Kubernetes settings.',
+        },
+      });
+    }
+  };
+
 export const pinApp =
   (app: App) => async (dispatch: Dispatch<PinAppAction>) => {
     try {
