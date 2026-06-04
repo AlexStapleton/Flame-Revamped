@@ -7,3 +7,10 @@ data
 .env
 .env.*
 !.env.example
+# Dev-only artifacts — not needed at runtime and shouldn't be baked into the
+# image by the multiarch Dockerfile's `COPY . .` (e.g. a stale local access.log).
+.git
+log
+test
+docs
+.dev

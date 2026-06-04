@@ -45,7 +45,10 @@ RUN apt-get update && apt-get install -y -q --no-install-recommends \
 ENV NODE_ENV=production
 WORKDIR /app
 COPY --from=builder --chown=node:node /app /app
-RUN mkdir -p /app/data /app/log
+# Create the writable dirs AND hand them to the non-root node user. Without the
+# chown these are created root-owned, so `node` can't write access.log / the
+# SQLite DB and the app crashes with EACCES on startup.
+RUN mkdir -p /app/data /app/log && chown -R node:node /app/data /app/log
 USER node
 EXPOSE 5005
 CMD ["node", "server.js"]
