@@ -59,7 +59,6 @@ function parseRemoteVersion(raw: string): string | null {
     const m = raw.match(/^\s*VITE_APP_VERSION\s*=\s*["']?([0-9A-Za-z.\-_]+)["']?\s*$/m);
     return extractCoreVersion(m ? m[1] : null);
   }
-  return null;
 }
 
 // https://github.com/<owner>/<repo> => raw GH URL

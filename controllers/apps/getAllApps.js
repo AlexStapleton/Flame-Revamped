@@ -3,27 +3,11 @@ const App = require('../../models/App');
 const { Sequelize } = require('sequelize');
 const loadConfig = require('../../utils/loadConfig');
 
-const { useKubernetes, useDocker } = require('./docker');
-
 // @desc      Get all apps
 // @route     GET /api/apps
 // @access    Public
 const getAllApps = asyncWrapper(async (req, res, next) => {
-  const {
-    useOrdering: orderType,
-    dockerApps: useDockerAPI,
-    kubernetesApps: useKubernetesAPI,
-  } = await loadConfig();
-
-  let apps;
-
-  if (useDockerAPI) {
-    await useDocker(apps);
-  }
-
-  if (useKubernetesAPI) {
-    await useKubernetes(apps);
-  }
+  const { useOrdering: orderType } = await loadConfig();
 
   // apps visibility
   const where = req.isAuthenticated ? {} : { isPublic: true };
@@ -33,7 +17,7 @@ const getAllApps = asyncWrapper(async (req, res, next) => {
       ? [[Sequelize.fn('lower', Sequelize.col('name')), 'ASC']]
       : [[orderType, 'ASC']];
 
-  apps = await App.findAll({
+  const apps = await App.findAll({
     order,
     where,
   });

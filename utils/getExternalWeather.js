@@ -11,9 +11,11 @@ const getExternalWeather = async () => {
       `https://api.weatherapi.com/v1/current.json?key=${secret}&q=${lat},${long}`
     );
 
-    // Save weather data
+    // Save weather data. Keep a single row updated in place rather than
+    // inserting a new row every 15 minutes (the cleaner job prunes any older
+    // legacy rows).
     const cursor = res.data.current;
-    const weatherData = await Weather.create({
+    const fields = {
       externalLastUpdate: cursor.last_updated,
       tempC: cursor.temp_c,
       tempF: cursor.temp_f,
@@ -24,7 +26,13 @@ const getExternalWeather = async () => {
       humidity: cursor.humidity,
       windK: cursor.wind_kph,
       windM: cursor.wind_mph,
-    });
+    };
+
+    const existing = await Weather.findOne({ order: [['id', 'DESC']] });
+    const weatherData = existing
+      ? await existing.update(fields)
+      : await Weather.create(fields);
+
     return weatherData;
   } catch (err) {
     throw new Error('External API request failed');
