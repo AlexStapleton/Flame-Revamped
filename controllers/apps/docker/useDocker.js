@@ -4,7 +4,7 @@ const Logger = require('../../../utils/Logger');
 const logger = new Logger();
 const loadConfig = require('../../../utils/loadConfig');
 
-const useDocker = async (apps) => {
+const useDocker = async () => {
   const {
     useOrdering: orderType,
     unpinStoppedApps,
@@ -38,7 +38,7 @@ const useDocker = async (apps) => {
   }
 
   if (containers) {
-    apps = await App.findAll({
+    const apps = await App.findAll({
       order: [[orderType, 'ASC']],
     });
 
@@ -107,9 +107,9 @@ const useDocker = async (apps) => {
     }
 
     if (unpinStoppedApps) {
-      for (const app of apps) {
-        await app.update({ isPinned: false });
-      }
+      // Unpin everything in one statement before re-pinning discovered apps,
+      // instead of issuing one UPDATE per row.
+      await App.update({ isPinned: false }, { where: {} });
     }
 
     for (const item of dockerApps) {

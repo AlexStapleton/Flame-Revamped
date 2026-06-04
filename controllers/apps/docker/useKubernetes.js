@@ -3,7 +3,7 @@ const Logger = require('../../../utils/Logger');
 const logger = new Logger();
 const loadConfig = require('../../../utils/loadConfig');
 
-const useKubernetes = async (apps) => {
+const useKubernetes = async () => {
   try {
     const k8s = await import('@kubernetes/client-node');
     const { useOrdering: orderType, unpinStoppedApps } = await loadConfig();
@@ -46,10 +46,9 @@ const useKubernetes = async (apps) => {
       const currentApps = await App.findAll({ order: [[orderType, 'ASC']] });
 
       if (unpinStoppedApps) {
-        for (const app of currentApps) {
-          // Unpin all apps b4 re-pinning ones found @ Kubernetes
-          await app.update({ isPinned: false });
-        }
+        // Unpin all apps in one statement before re-pinning ones found in
+        // Kubernetes, instead of one UPDATE per row.
+        await App.update({ isPinned: false }, { where: {} });
       }
 
       for (const item of kubernetesApps) {

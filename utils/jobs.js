@@ -1,6 +1,7 @@
 const schedule = require('node-schedule');
 const getExternalWeather = require('./getExternalWeather');
 const clearWeatherData = require('./clearWeatherData');
+const syncApps = require('./syncApps');
 const Sockets = require('../Sockets');
 const Logger = require('./Logger');
 const loadConfig = require('./loadConfig');
@@ -36,4 +37,22 @@ module.exports = async function () {
       }
     );
   }
+
+  // Sync Docker/Kubernetes apps once a minute. This previously ran inline on
+  // every public GET /api/apps; moving it here keeps reads cheap. The sync reads
+  // the dockerApps/kubernetesApps flags each run, so toggling them in settings
+  // takes effect without a restart.
+  schedule.scheduleJob('syncApps', '0 * * * * *', async () => {
+    try {
+      await syncApps();
+    } catch (err) {
+      logger.log(`App sync failed: ${err.message}`, 'ERROR');
+    }
+  });
+
+  // Run one sync at startup so discovered apps appear promptly instead of after
+  // the first scheduled tick.
+  syncApps().catch((err) =>
+    logger.log(`Initial app sync failed: ${err.message}`, 'ERROR')
+  );
 };

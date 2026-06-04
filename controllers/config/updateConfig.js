@@ -24,6 +24,10 @@ const updateConfig = asyncWrapper(async (req, res, next) => {
 
   await writeFile('data/config.json', JSON.stringify(newConfig));
 
+  // Keep the in-memory config cache in sync so the next read doesn't hit disk
+  // and doesn't serve a stale value.
+  loadConfig.setCache(newConfig);
+
   res.status(200).send({
     success: true,
     data: newConfig,

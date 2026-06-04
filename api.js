@@ -2,6 +2,7 @@ const fs = require('fs');
 const { join } = require('path');
 const express = require('express');
 const helmet = require('helmet');
+const compression = require('compression');
 const morgan = require('morgan');
 const { errorHandler } = require('./middleware');
 const healthRoutes = require('./routes/health');
@@ -25,6 +26,10 @@ api.use(
   })
 );
 
+// Gzip/deflate text responses (JSON API, JS/CSS bundles, icon payloads). Big win
+// on first load since the client bundle and @mdi icon data are sizable.
+api.use(compression());
+
 // Access logging — enables fail2ban and the /health log scan. Resolves to
 // /app/log/access.log inside the container. Health checks are skipped to avoid
 // flooding the log.
@@ -43,8 +48,20 @@ api.use(
 // Register health route BEFORE static content handler
 api.use('/health', healthRoutes);
 
-// Static files
-api.use(express.static(join(__dirname, 'public')));
+// Static files. Vite emits content-hashed filenames under /assets, so those are
+// safe to cache aggressively. Everything else (index.html, the user-editable
+// flame.css, customQueries.json) must stay fresh so edits show up immediately.
+api.use(
+  express.static(join(__dirname, 'public'), {
+    setHeaders: (res, filePath) => {
+      if (/[\\/]assets[\\/]/.test(filePath)) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      } else {
+        res.setHeader('Cache-Control', 'no-cache');
+      }
+    },
+  })
+);
 // Uploaded icons are user-supplied. Forbid MIME sniffing and sandbox them so a
 // malicious upload (e.g. an SVG/HTML file) can't execute script if navigated to
 // directly.

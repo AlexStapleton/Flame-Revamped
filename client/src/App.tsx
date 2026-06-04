@@ -46,8 +46,7 @@ export const App = (): JSX.Element => {
           // clear token+logout
           localStorage.removeItem('token');
           localStorage.removeItem('refreshToken');
-          delete axios.defaults.headers.common['Authorization'];
-  
+
           logout();
           createNotification({
             title: 'Info',
@@ -61,7 +60,7 @@ export const App = (): JSX.Element => {
         logout();
         window.clearInterval(id);
       }
-    }, 1000);
+    }, 30000);
   
     fetchThemes();
     if (localStorage.theme) setTheme(parsePABToTheme(localStorage.theme));

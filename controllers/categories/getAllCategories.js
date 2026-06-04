@@ -3,6 +3,8 @@ const Category = require('../../models/Category');
 const Bookmark = require('../../models/Bookmark');
 const { Sequelize } = require('sequelize');
 const loadConfig = require('../../utils/loadConfig');
+const Logger = require('../../utils/Logger');
+const logger = new Logger();
 
 // @desc      Get all categories
 // @route     GET /api/categories
@@ -43,8 +45,11 @@ const getAllCategories = asyncWrapper(async (req, res, next) => {
       where: augmentedWhere,
     });
   } catch (error) {
-    console.warn('Warning: Could not filter categories by "section" for Bookmarks. This is expected if you are running legacy Flame e.g. not flame-dev:latest. Falling back to fetching all categories to display in Bookmarks section.');
-    
+    logger.log(
+      'Could not filter categories by "section" for Bookmarks. This is expected on legacy Flame schemas (not flame-dev:latest). Falling back to fetching all categories for the Bookmarks section.',
+      'WARNING'
+    );
+
     categories = await Category.findAll({
       include: [
         {
