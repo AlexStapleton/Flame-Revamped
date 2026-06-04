@@ -26,6 +26,7 @@ export const AppCard = ({ app }: Props): JSX.Element => {
         src={source}
         alt={`${app.name} icon`}
         className={classes.CustomIcon}
+        draggable={false}
       />
     );
   } else if (isSvg(icon)) {
@@ -50,6 +51,11 @@ export const AppCard = ({ app }: Props): JSX.Element => {
       target={config.appsSameTab ? '' : '_blank'}
       rel="noreferrer"
       className={classes.AppCard}
+      // Disable the browser's native link/image drag. In Firefox a draggable
+      // <a> hijacks the mousedown for native drag-and-drop, starving dnd-kit's
+      // PointerSensor so the reorder never starts and the release lands as a
+      // navigation (the card opens). Chromium doesn't hijack it the same way.
+      draggable={false}
     >
       <div className={classes.AppCardIcon}>{iconEl}</div>
       <div className={classes.AppCardDetails}>

@@ -63,6 +63,7 @@ export const BookmarkCard = (props: Props): JSX.Element => {
                     src={source}
                     alt={`${name} icon`}
                     className={classes.CustomIcon}
+                    draggable={false}
                   />
                 </div>
               );
@@ -93,6 +94,9 @@ export const BookmarkCard = (props: Props): JSX.Element => {
               target={config.bookmarksSameTab ? '' : '_blank'}
               rel="noreferrer"
               key={`bookmark-${bookmark.id}`}
+              // See AppCard: disable native drag so Firefox doesn't hijack the
+              // drag from dnd-kit (which would otherwise open the bookmark).
+              draggable={false}
             >
               {bookmark.icon && iconEl}
               {bookmark.name}
