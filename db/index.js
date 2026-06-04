@@ -38,7 +38,17 @@ const connectDB = async () => {
 
     // FKs for connection
     await sequelize.query('PRAGMA foreign_keys = ON;');
-    logger.log('SQLite PRAGMA foreign_keys = ON');
+
+    // Concurrency/throughput: WAL lets readers (public page loads) run alongside
+    // a writer (scheduled jobs, reorders, edits) instead of serializing; the busy
+    // timeout avoids spurious SQLITE_BUSY "database is locked" errors; NORMAL
+    // synchronous is the recommended, safe pairing with WAL.
+    await sequelize.query('PRAGMA journal_mode = WAL;');
+    await sequelize.query('PRAGMA busy_timeout = 5000;');
+    await sequelize.query('PRAGMA synchronous = NORMAL;');
+    logger.log(
+      'SQLite PRAGMAs set: foreign_keys=ON, journal_mode=WAL, busy_timeout=5000, synchronous=NORMAL'
+    );
 
     // debug => console => what 2 do ??
     const executed = await umzug.executed();
