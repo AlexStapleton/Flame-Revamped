@@ -305,6 +305,13 @@ export const reorderCategories =
       }[];
     }
 
+    // Optimistic update (see reorderApps): reorder the store first so the drop
+    // animation lands correctly, then persist in the background.
+    dispatch({
+      type: ActionType.reorderCategories,
+      payload: categories,
+    });
+
     try {
       const updateQuery: ReorderQuery = { categories: [] };
 
@@ -320,11 +327,6 @@ export const reorderCategories =
         updateQuery,
         { headers: applyAuth() }
       );
-
-      dispatch({
-        type: ActionType.reorderCategories,
-        payload: categories,
-      });
     } catch (err) {
       console.log(err);
     }
@@ -358,6 +360,13 @@ export const reorderBookmarks =
       }[];
     }
 
+    // Optimistic update (see reorderApps): reorder the store first so the drop
+    // animation lands correctly, then persist in the background.
+    dispatch({
+      type: ActionType.reorderBookmarks,
+      payload: { bookmarks, categoryId },
+    });
+
     try {
       const updateQuery: ReorderQuery = { bookmarks: [] };
 
@@ -373,11 +382,6 @@ export const reorderBookmarks =
         updateQuery,
         { headers: applyAuth() }
       );
-
-      dispatch({
-        type: ActionType.reorderBookmarks,
-        payload: { bookmarks, categoryId },
-      });
     } catch (err) {
       console.log(err);
     }

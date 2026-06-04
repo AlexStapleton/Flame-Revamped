@@ -195,6 +195,15 @@ export const reorderApps =
       }[];
     }
 
+    // Optimistic update: reorder the store immediately so dnd-kit's drop
+    // animation lands the card in its new position. Awaiting the network first
+    // makes the card snap back to its old spot and then jump once the request
+    // resolves. Persisting happens in the background below.
+    dispatch({
+      type: ActionType.reorderApps,
+      payload: apps,
+    });
+
     try {
       const updateQuery: ReorderQuery = { apps: [] };
 
@@ -207,11 +216,6 @@ export const reorderApps =
 
       await axios.put<ApiResponse<{}>>('/api/apps/0/reorder', updateQuery, {
         headers: applyAuth(),
-      });
-
-      dispatch({
-        type: ActionType.reorderApps,
-        payload: apps,
       });
     } catch (err) {
       console.log(err);
