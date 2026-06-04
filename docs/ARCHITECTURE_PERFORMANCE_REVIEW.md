@@ -46,7 +46,7 @@ Follow-up pass implementing the "what else" backlog. Branch `chore/hardening-tes
 | Dependency vulns (server) | See "Accepted" below. | Documented, not force-fixed. |
 | Tests | `node:test` unit suites for the config cache, auth middleware, and the `signToken` duration allow-list. `npm test`. | **9 tests passing**, zero new deps. |
 | CI | `.github/workflows/ci.yml` runs server tests + client build on every PR/push. | Regressions caught pre-merge. |
-| Multi-arch image | Attempted `Dockerfile.multiarch` + QEMU (`amd64,arm64`). **The v1.2.0 build failed early under emulation** (stale upstream multiarch Dockerfile). **Reverted to the proven amd64 build** so releases publish reliably; arm64 deferred (needs build-log access to debug). | amd64 publishes reliably; arm64 is a tracked follow-up. |
+| Multi-arch image | `Dockerfile.multiarch` + QEMU, builds `linux/amd64,linux/arm64`. The initial v1.2.0 attempt failed instantly because that Dockerfile **re-declared the automatic `BUILDPLATFORM`/`TARGETPLATFORM` args, blanking them** (`--platform=` invalid) — fixed by removing the bad `ARG` lines. A separate publish failure was the **GHA build cache** (a failed run poisoned it); that cache is now disabled. Both arches were validated building end-to-end locally before re-enabling. Shipped in v1.3.0. | ARM (Raspberry Pi / ARM NAS) support. |
 | "Sync now" | `POST /api/apps/sync` wired into Docker settings (button shown when Docker/K8s is enabled); `Button` UI gained a `type` prop so the action doesn't submit the form. | On-demand sync from the UI. |
 
 ### Accepted server-side vulnerabilities (not force-fixed)

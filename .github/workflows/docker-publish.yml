@@ -34,6 +34,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up QEMU (for arm64 emulation)
+        uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -54,20 +57,20 @@ jobs:
             type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
             type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' }}
 
-      # NOTE: arm64 was attempted (v1.2.0) but the upstream Dockerfile.multiarch
-      # fails early under QEMU emulation. Reverted to the proven amd64 build that
-      # shipped v1.0.0/v1.1.0 so releases publish reliably. Re-enabling arm64 is
-      # tracked as a follow-up (needs build-log access to debug the multiarch
-      # Dockerfile / native sqlite3 compile).
-      - name: Build and push (linux/amd64)
+      # Multi-arch via Dockerfile.multiarch (Debian-based with build tools so the
+      # native sqlite3 module compiles for arm64 under QEMU). The earlier v1.2.0
+      # failure was a bug in that Dockerfile (it re-declared the automatic
+      # BUILDPLATFORM/TARGETPLATFORM args, blanking them) — fixed, and the full
+      # arm64 build was validated locally before re-enabling here.
+      - name: Build and push (linux/amd64, linux/arm64)
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: .docker/Dockerfile
-          platforms: linux/amd64
+          file: .docker/Dockerfile.multiarch
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          # GHA cache disabled: the failed v1.2.0 multi-arch run appears to have
-          # written an incompatible cache that broke the subsequent amd64 builds.
-          # Dropping it removes that confound (builds are fast enough without it).
+          # GHA cache intentionally left off: a prior failed run wrote an
+          # incompatible cache that broke later builds. Builds are fast enough
+          # without it, and it avoids that cross-run contamination class of bug.
