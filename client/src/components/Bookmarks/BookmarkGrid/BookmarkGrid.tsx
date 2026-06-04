@@ -28,6 +28,7 @@ import { actionCreators } from '../../../store';
 import { BookmarkCard } from '../BookmarkCard/BookmarkCard';
 import { Message, SortableItem } from '../../UI';
 import { rebuildOrderFromPinned } from '../../../utility';
+import { useDragClickGuard } from '../../../hooks/useDragClickGuard';
 
 interface Props {
   categories: Category[];
@@ -53,6 +54,9 @@ export const BookmarkGrid = (props: Props): JSX.Element => {
   );
   const dispatch = useDispatch();
   const { reorderCategories } = bindActionCreators(actionCreators, dispatch);
+
+  // Suppress the trailing click after a drag so reordering doesn't open a bookmark.
+  const dragGuard = useDragClickGuard();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -120,7 +124,11 @@ export const BookmarkGrid = (props: Props): JSX.Element => {
     <DndContext
       sensors={sensors}
       collisionDetection={closestCenter}
-      onDragEnd={handleDragEnd}
+      onDragStart={dragGuard.onDragStart}
+      onDragEnd={(e) => {
+        dragGuard.onDragEnd();
+        handleDragEnd(e);
+      }}
     >
       <SortableContext
         items={categories.map((c) => c.id)}

@@ -26,6 +26,7 @@ import { actionCreators } from '../../../store';
 import { AppCard } from '../AppCard/AppCard';
 import { Message, SortableItem } from '../../UI';
 import { rebuildOrderFromPinned } from '../../../utility';
+import { useDragClickGuard } from '../../../hooks/useDragClickGuard';
 
 interface Props {
   apps: App[];
@@ -40,6 +41,9 @@ export const AppGrid = (props: Props): JSX.Element => {
   const { apps: allApps } = useSelector((state: State) => state.apps);
   const dispatch = useDispatch();
   const { reorderApps } = bindActionCreators(actionCreators, dispatch);
+
+  // Suppress the trailing click after a drag so reordering a card doesn't open it.
+  const dragGuard = useDragClickGuard();
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -103,7 +107,11 @@ export const AppGrid = (props: Props): JSX.Element => {
     <DndContext
       sensors={sensors}
       collisionDetection={closestCenter}
-      onDragEnd={handleDragEnd}
+      onDragStart={dragGuard.onDragStart}
+      onDragEnd={(e) => {
+        dragGuard.onDragEnd();
+        handleDragEnd(e);
+      }}
     >
       <SortableContext
         items={props.apps.map((a) => a.id)}
