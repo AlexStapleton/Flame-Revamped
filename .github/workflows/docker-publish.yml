@@ -34,9 +34,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up QEMU (for arm64 emulation)
-        uses: docker/setup-qemu-action@v3
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -57,12 +54,17 @@ jobs:
             type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
             type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' }}
 
-      - name: Build and push (linux/amd64, linux/arm64)
+      # NOTE: arm64 was attempted (v1.2.0) but the upstream Dockerfile.multiarch
+      # fails early under QEMU emulation. Reverted to the proven amd64 build that
+      # shipped v1.0.0/v1.1.0 so releases publish reliably. Re-enabling arm64 is
+      # tracked as a follow-up (needs build-log access to debug the multiarch
+      # Dockerfile / native sqlite3 compile).
+      - name: Build and push (linux/amd64)
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: .docker/Dockerfile.multiarch
-          platforms: linux/amd64,linux/arm64
+          file: .docker/Dockerfile
+          platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
