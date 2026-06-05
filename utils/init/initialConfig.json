@@ -33,5 +33,6 @@
   "automaticUpdates": false,
   "useDefaults": true,
   "updateUrl": "",
-  "showPopups": true
+  "showPopups": true,
+  "statusCheckInterval": 60
 }
