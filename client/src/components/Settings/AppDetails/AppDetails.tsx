@@ -9,7 +9,7 @@ import { actionCreators } from '../../../store';
 import { bindActionCreators } from 'redux';
 
 // Other
-import { checkVersion, VersionStatus } from '../../../utility';
+import { checkVersion, VersionStatus, applyAuth } from '../../../utility';
 import { AuthForm } from './AuthForm/AuthForm';
 import { AppDetailsForm } from '../../../interfaces';
 
@@ -219,7 +219,70 @@ export const AppDetails = (): JSX.Element => {
       setChecking(false);
     }
   };
-  
+
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
+
+  const handleExport = async () => {
+    try {
+      const res = await fetch('/api/backup/export', { headers: applyAuth() });
+      if (!res.ok) throw new Error('export failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `flame-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      createNotification({ title: 'Error', message: 'Failed to export backup.' });
+    }
+  };
+
+  const handleImportFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // allow re-selecting the same file later
+    if (!file) return;
+
+    let envelope: unknown;
+    try {
+      envelope = JSON.parse(await file.text());
+    } catch {
+      createNotification({ title: 'Error', message: 'That file is not valid JSON.' });
+      return;
+    }
+
+    const confirmed = window.confirm(
+      'Importing will REPLACE all current apps, bookmarks, categories, themes, ' +
+        'queries, and custom CSS with the contents of this file. A safety backup ' +
+        'of your current data will be saved first. Continue?'
+    );
+    if (!confirmed) return;
+
+    setImporting(true);
+    try {
+      const res = await fetch('/api/backup/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...applyAuth() },
+        body: JSON.stringify(envelope),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(body?.error || 'Import failed.');
+      }
+      createNotification({ title: 'Success', message: 'Backup imported. Reloading…' });
+      setTimeout(() => window.location.reload(), 1200);
+    } catch (err) {
+      createNotification({
+        title: 'Error',
+        message: err instanceof Error ? err.message : 'Import failed.',
+      });
+      setImporting(false);
+    }
+  };
 
   return (
     <Fragment>
@@ -280,6 +343,39 @@ export const AppDetails = (): JSX.Element => {
             </div>
 	    <Button type="submit" className={classes.saveButton}>Save changes</Button>
           </form>
+
+          <hr className={classes.separator} />
+          <SettingsHeadline text="Backup & Restore" />
+          <p className={classes.text}>
+            Export all apps, bookmarks, categories, settings, themes, queries, and
+            custom CSS to a single JSON file, or restore from a previous export.
+            Secrets (weather API key) are excluded from exports. Importing replaces
+            all current data.
+          </p>
+          <div className={classes.backupButtons}>
+            <button
+              type="button"
+              onClick={handleExport}
+              className={classes.checkButton}
+            >
+              Export backup
+            </button>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={importing}
+              className={classes.checkButton}
+            >
+              {importing ? 'Importing…' : 'Import backup'}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/json,.json"
+              style={{ display: 'none' }}
+              onChange={handleImportFile}
+            />
+          </div>
         </Fragment>
       )}
     </Fragment>
