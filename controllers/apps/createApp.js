@@ -1,6 +1,7 @@
 const asyncWrapper = require('../../middleware/asyncWrapper');
 const App = require('../../models/App');
 const loadConfig = require('../../utils/loadConfig');
+const runStatusChecks = require('../../utils/runStatusChecks');
 
 // @desc      Create new app
 // @route     POST /api/apps
@@ -22,6 +23,11 @@ const createApp = asyncWrapper(async (req, res, next) => {
     ...body,
     isPinned: pinAppsByDefault,
   });
+
+  // If created with a health check on, probe immediately (fire-and-forget).
+  if (app.statusCheckEnabled) {
+    runStatusChecks.checkOne(app);
+  }
 
   res.status(201).json({
     success: true,

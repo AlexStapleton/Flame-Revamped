@@ -80,7 +80,7 @@ export const AppCard = ({ app }: Props): JSX.Element => {
         <h5>{app.name}</h5>
         <span>{!app.description.length ? displayUrl : app.description}</span>
       </div>
-      {app.status && (
+      {!!app.statusCheckEnabled && app.status && (
         <span
           className={`${classes.StatusDot} ${
             app.status === 'online' ? classes.online : classes.offline
