@@ -56,9 +56,10 @@ Both endpoints use the existing `auth` + `requireAuth` middleware (admin-only):
 - **`GET /api/backup/export`** — builds the envelope, sends it as a downloadable JSON
   (`Content-Disposition: attachment; filename="flame-backup-<date>.json"`).
 - **`POST /api/backup/import`** — accepts the envelope in the request body, validates it,
-  writes a safety backup, then replaces current data. The router mounts its own
-  `express.json({ limit: '10mb' })` so a large backup (many apps/bookmarks + CSS) isn't
-  rejected by the global 100 kb body-parser default.
+  writes a safety backup, then replaces current data. The global `express.json()` body
+  limit in `api.js` is raised to `10mb` so a large backup (many apps/bookmarks + CSS) isn't
+  rejected by the default 100 kb cap (the global parser runs before the route, so a
+  route-level limit override would have no effect).
 
 Controllers live in `controllers/backup/` (`exportData.js`, `importData.js`, `index.js`)
 following the existing per-controller-folder pattern.
