@@ -59,6 +59,10 @@ plus a WebSocket channel and scheduled jobs.
   dead clients.
 - **Integrations (opt-in):** Docker (via `/var/run/docker.sock` or a TCP host) and
   Kubernetes Ingress discovery, run on a schedule (off the request path).
+- **Health checks (opt-in, v1.4.0):** a scheduled job probes each opted-in app's URL
+  server-side (any HTTP response = reachable) and stores `online`/`offline`; the status
+  dot is returned **only to authenticated** clients. Server fetches admin-configured URLs
+  — same SSRF surface as the weather/Docker integrations (accepted).
 - **Deployment:** multi-arch (`linux/amd64,linux/arm64`) Docker image built from
   `.docker/Dockerfile.multiarch`, published by GitHub Actions on `v*` tags. Runs as
   non-root `node`; `data/` is a volume; `data/` and `.env` are never served.
@@ -67,7 +71,8 @@ plus a WebSocket channel and scheduled jobs.
 React 19 SPA built by Vite. Redux (thunks) manages state; reorders are optimistic.
 Routes are code-split (Home eager; Apps/Bookmarks/Settings lazy). The `@mdi/js` icon set
 is dynamically imported (async chunk) to keep it off the initial load. Drag-reorder uses
-dnd-kit with a document-level click guard (Firefox fix).
+dnd-kit with a document-level click guard (Firefox fix). App/bookmark icons accept MDI
+names, uploaded files, image URLs, or `dashboard:<slug>` for dashboard-icons CDN logos.
 
 ---
 
