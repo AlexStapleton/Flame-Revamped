@@ -49,8 +49,18 @@ test('validateBackup rejects a missing data object', () => {
   assert.strictEqual(res.ok, false);
 });
 
+test('validateBackup rejects an array data field', () => {
+  const res = validateBackup({ flameBackup: true, schemaVersion: SCHEMA_VERSION, data: [] });
+  assert.strictEqual(res.ok, false);
+});
+
 const { readJsonArray } = require('../utils/backup/serialize');
 
 test('readJsonArray returns [] when a file is missing or unparseable', () => {
   assert.deepStrictEqual(readJsonArray('does/not/exist.json', 'themes'), []);
+});
+
+test('readJsonArray returns [] when the named key is absent', () => {
+  // package.json exists and parses, but has no "themes" key.
+  assert.deepStrictEqual(readJsonArray('package.json', 'themes'), []);
 });

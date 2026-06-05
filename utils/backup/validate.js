@@ -15,7 +15,7 @@ const validateBackup = (obj) => {
       error: `Unsupported backup version (${obj.schemaVersion}). This Flame expects version ${SCHEMA_VERSION}.`,
     };
   }
-  if (!obj.data || typeof obj.data !== 'object') {
+  if (!obj.data || typeof obj.data !== 'object' || Array.isArray(obj.data)) {
     return { ok: false, error: 'Backup is missing its data section.' };
   }
   return { ok: true };

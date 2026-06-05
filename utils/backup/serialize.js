@@ -1,3 +1,4 @@
+const fs = require('fs');
 const path = require('path');
 const File = require('../File');
 const App = require('../../models/App');
@@ -25,8 +26,7 @@ const readJsonArray = (filePath, key) => {
 
 const readCss = () => {
   try {
-    const raw = new File(CSS_PATH).read();
-    return typeof raw === 'string' ? raw : '';
+    return fs.readFileSync(CSS_PATH, 'utf-8');
   } catch {
     return '';
   }
