@@ -10,7 +10,7 @@ import { actionCreators } from '../../../store';
 import { Bookmark, Category, NewBookmark } from '../../../interfaces';
 
 // UI
-import { ModalForm, InputGroup, Button } from '../../UI';
+import { ModalForm, InputGroup, Button, DashboardIconPicker } from '../../UI';
 
 // CSS
 import classes from './Form.module.css';
@@ -35,6 +35,7 @@ export const BookmarksForm = ({
 
   const [useCustomIcon, toggleUseCustomIcon] = useState<boolean>(false);
   const [customIcon, setCustomIcon] = useState<File | null>(null);
+  const [showPicker, setShowPicker] = useState<boolean>(false);
 
   const [formData, setFormData] = useState<NewBookmark>(newBookmarkTemplate);
 
@@ -231,6 +232,20 @@ export const BookmarksForm = ({
           >
             Switch to custom icon upload
           </span>
+          <span
+            onClick={() => setShowPicker(!showPicker)}
+            className={classes.Switch}
+          >
+            {showPicker ? 'Hide app logo browser' : 'Browse app logos'}
+          </span>
+          {showPicker && (
+            <DashboardIconPicker
+              onSelect={(slug) => {
+                setFormData({ ...formData, icon: `dashboard:${slug}` });
+                setShowPicker(false);
+              }}
+            />
+          )}
         </InputGroup>
       ) : (
         // custom

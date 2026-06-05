@@ -4,7 +4,7 @@ import { NewApp } from '../../../interfaces';
 
 import classes from './AppForm.module.css';
 
-import { ModalForm, InputGroup, Button } from '../../UI';
+import { ModalForm, InputGroup, Button, DashboardIconPicker } from '../../UI';
 import { inputHandler, newAppTemplate } from '../../../utility';
 import { bindActionCreators } from 'redux';
 import { actionCreators } from '../../../store';
@@ -23,6 +23,7 @@ export const AppForm = ({ modalHandler }: Props): JSX.Element => {
 
   const [useCustomIcon, toggleUseCustomIcon] = useState<boolean>(false);
   const [customIcon, setCustomIcon] = useState<File | null>(null);
+  const [showPicker, setShowPicker] = useState<boolean>(false);
   const [formData, setFormData] = useState<NewApp>(newAppTemplate);
 
   useEffect(() => {
@@ -179,6 +180,20 @@ export const AppForm = ({ modalHandler }: Props): JSX.Element => {
           >
             Switch to custom icon upload
           </span>
+          <span
+            onClick={() => setShowPicker(!showPicker)}
+            className={classes.Switch}
+          >
+            {showPicker ? 'Hide app logo browser' : 'Browse app logos'}
+          </span>
+          {showPicker && (
+            <DashboardIconPicker
+              onSelect={(slug) => {
+                setFormData({ ...formData, icon: `dashboard:${slug}` });
+                setShowPicker(false);
+              }}
+            />
+          )}
         </InputGroup>
       ) : (
         // upload custom icon
