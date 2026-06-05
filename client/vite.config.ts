@@ -16,7 +16,10 @@ export default defineConfig({
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
           'vendor-redux': ['redux', 'react-redux', 'redux-thunk'],
           'vendor-dnd': ['@dnd-kit/core', '@dnd-kit/sortable'],
-          'vendor-mdi': ['@mdi/js', '@mdi/react'],
+          // NOTE: @mdi/js is intentionally NOT pinned here. It's dynamically
+          // imported in Icon.tsx, so Rollup gives it its own async chunk that
+          // loads off the initial critical path. Pinning it (especially with the
+          // statically-imported @mdi/react) would pull it back into eager load.
         },
       },
     },

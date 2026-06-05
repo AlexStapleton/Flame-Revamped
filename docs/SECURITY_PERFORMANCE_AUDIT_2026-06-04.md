@@ -9,9 +9,10 @@ multi-arch, and the Firefox drag fixes). Complements the earlier
 Security model unchanged: a single `PASSWORD` gates all writes; reads are public
 (filtered by `isPublic`). Internet-facing assumed.
 
-> **Status (2026-06-04): IMPLEMENTED — BUG-1, PERF-1, SEC-1, SEC-2, SEC-3** (shipped
-> in v1.3.6). **Deferred (with rationale):** PERF-2 (MDI dynamic loader — substantial,
-> needs dedicated icon-regression testing), PERF-3 (only matters at large scale),
+> **Status (2026-06-04): IMPLEMENTED — BUG-1, PERF-1, SEC-1, SEC-2, SEC-3** (v1.3.6),
+> **PERF-2** (v1.3.7 — `@mdi/js` now dynamically imported; the ~803 KB gzip icon set
+> is an async chunk off the initial load, verified in-browser that named icons still
+> resolve). **Deferred (with rationale):** PERF-3 (only matters at large scale),
 > PERF-4 (gating weather risks stale data on first load), SEC-4 (transitive — no
 > non-breaking fix; monitor), SEC-5/SEC-6 (architectural / accepted).
 
