@@ -29,12 +29,12 @@ export const AppDetails = (): JSX.Element => {
   const [changelogSource, setChangelogSource] = useState<'local' | 'remote'>('local');
   const lastLocalChangelogRef = useRef<string>('');
   const defaultUpdateUrl = useMemo(() => {
-      const owner = localData.owner || 'spiicytuna';
-      const repo = localData.repo || 'flame';
+      const owner = localData.owner || 'AlexStapleton';
+      const repo = localData.repo || 'Flame-Revamped';
       const isDev = localData.name === 'flame-dev';
       const branch = isDev
-        ? (localData.branches?.dev || 'tuna-combo')
-        : (localData.branches?.stable || 'master');
+        ? (localData.branches?.dev || 'main')
+        : (localData.branches?.stable || 'main');
       return `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/package.json`;
     }, [localData.owner, localData.repo, localData.name, localData.branches?.dev, localData.branches?.stable]);
    

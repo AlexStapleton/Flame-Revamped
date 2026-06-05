@@ -23,11 +23,11 @@ router.get('/', (_req, res) => {
       {};
 
     // .env override
-    const owner   = process.env.OWNER  || cfg.owner  || 'spiicytuna';
-    const repo    = process.env.REPO   || cfg.repo   || 'flame';
+    const owner   = process.env.OWNER  || cfg.owner  || 'AlexStapleton';
+    const repo    = process.env.REPO   || cfg.repo   || 'Flame-Revamped';
     const branches = {
-      stable: process.env.BRANCH_STABLE || cfg?.branches?.stable || 'master',
-      dev:    process.env.BRANCH_DEV    || cfg?.branches?.dev    || 'tuna-combo',
+      stable: process.env.BRANCH_STABLE || cfg?.branches?.stable || 'main',
+      dev:    process.env.BRANCH_DEV    || cfg?.branches?.dev    || 'main',
     };
 
     res.json({ name, version, owner, repo, branches });

@@ -86,11 +86,12 @@ export async function checkVersion(
 ): Promise<VersionStatus> {
   const { name: pkgName, version: localVersionMaybe, owner, repo, branches } = await getLocalAppInfo();
 
-  // hardcode spiicytuna => override versionCheck.json
-  const ownerRepo = `${owner || 'spiicytuna'}/${repo || 'flame'}`;
+  // Fallbacks if /api/version is unreachable. The server normally supplies these
+  // (its own defaults point at this repo); keep them in sync with routes/version.js.
+  const ownerRepo = `${owner || 'AlexStapleton'}/${repo || 'Flame-Revamped'}`;
   const branch = (pkgName === 'flame-dev')
-    ? (branches?.dev || 'tuna-combo')
-    : (branches?.stable || 'master');
+    ? (branches?.dev || 'main')
+    : (branches?.stable || 'main');
 
   const defaults = {
     defaultUrl:  `https://raw.githubusercontent.com/${ownerRepo}/${branch}/package.json`,

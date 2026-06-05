@@ -1,3 +1,9 @@
+### v1.5.0 (2026-06-05)
+- Added config/data import & export — one-click Backup & Restore in Settings (apps, bookmarks, categories, config, themes, queries, custom CSS), with a pre-import safety snapshot. Secrets (weather API key) are excluded from exports.
+- Fixed the update checker to track this fork (AlexStapleton/Flame-Revamped, `main`) instead of the upstream repo it was branched from.
+- Bumped CI/publish GitHub Actions to Node 24-compatible versions.
+- Renumbered releases onto this fork's v1.x line. Entries below use the prior 2.x app-version lineage inherited from upstream Flame.
+
 ### v2.4.3 (2025-12-20)
 - Updated axios 1.11.0 => 1.13.2
 - Updated dotenv 10.0.0 => 17.2.3
