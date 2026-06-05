@@ -78,6 +78,8 @@ export const AppForm = ({ modalHandler }: Props): JSX.Element => {
       data.append('description', formData.description);
       data.append('url', formData.url);
       data.append('isPublic', `${formData.isPublic ? 1 : 0}`);
+      data.append('statusCheckEnabled', `${formData.statusCheckEnabled ? 1 : 0}`);
+      data.append('statusCheckUrl', formData.statusCheckUrl || '');
 
       return data;
     };
@@ -164,10 +166,11 @@ export const AppForm = ({ modalHandler }: Props): JSX.Element => {
             onChange={(e) => inputChangeHandler(e)}
           />
           <span>
-            Use icon name from MDI or pass a valid URL.
+            Use an MDI name, an image URL, or <code>dashboard:&lt;name&gt;</code>{' '}
+            for an app logo (e.g. <code>dashboard:plex</code>).
             <a href="https://pictogrammers.com/library/mdi/" target="blank">
               {' '}
-              Click here for reference
+              MDI reference
             </a>
           </span>
           <span
@@ -198,6 +201,35 @@ export const AppForm = ({ modalHandler }: Props): JSX.Element => {
           >
             Switch to MDI
           </span>
+        </InputGroup>
+      )}
+
+      {/* HEALTH CHECK */}
+      <InputGroup>
+        <label htmlFor="statusCheckEnabled">Health check</label>
+        <select
+          id="statusCheckEnabled"
+          name="statusCheckEnabled"
+          value={formData.statusCheckEnabled ? 1 : 0}
+          onChange={(e) => inputChangeHandler(e, { isBool: true })}
+        >
+          <option value={0}>Disabled</option>
+          <option value={1}>Enabled (show up/down status)</option>
+        </select>
+      </InputGroup>
+
+      {formData.statusCheckEnabled && (
+        <InputGroup>
+          <label htmlFor="statusCheckUrl">Status URL (optional)</label>
+          <input
+            type="text"
+            name="statusCheckUrl"
+            id="statusCheckUrl"
+            placeholder="Defaults to the app URL"
+            value={formData.statusCheckUrl}
+            onChange={(e) => inputChangeHandler(e)}
+          />
+          <span>Optional - reachability is checked here instead of the app URL.</span>
         </InputGroup>
       )}
 

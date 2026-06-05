@@ -6,6 +6,8 @@ export const newAppTemplate: NewApp = {
   icon: '',
   isPublic: true,
   description: '',
+  statusCheckEnabled: false,
+  statusCheckUrl: '',
 };
 
 export const appTemplate: App = {
