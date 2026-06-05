@@ -18,6 +18,12 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      # Surface dependency advisories in the CI log without failing the build.
+      # The current server advisories are all transitive/build-time and accepted
+      # (see docs/ARCHITECTURE_AND_DEPENDENCIES.md); this keeps them visible so a
+      # newly-introduced runtime-reachable issue is noticed on each PR.
+      - name: npm audit (informational)
+        run: npm audit --omit=dev || true
 
   client:
     name: Client build
