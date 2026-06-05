@@ -28,17 +28,22 @@ versions (rejected, not auto-migrated, in this MVP); backup of cached weather da
 | apps | `apps` table (Sequelize) | full rows |
 | categories | `categories` table | parent of bookmarks (`hasMany`) |
 | bookmarks | `bookmarks` table | `categoryId` FK → category |
-| config | `config` table (key/value/valueType/isLocked) | **secrets stripped** on export |
+| config | `data/config.json` (flat JSON object) | **runtime source of truth**; `WEATHER_API_KEY` stripped on export |
 | themes | `data/themes.json` (`{ themes: [...] }`) | file-backed |
 | queries | `data/customQueries.json` (`{ queries: [...] }`) | file-backed |
 | custom CSS | `public/flame.css` | raw text |
 
 Weather data (`weather` table) is cached external data and is **excluded**.
 
+> **Config storage note:** runtime config is `data/config.json` (read through the cached
+> `utils/loadConfig`). The `config` SQLite table is legacy — only read once by an old
+> migration, never at runtime — so it is **not** part of export/import.
+
 ### Secret config keys (stripped from export)
-`WEATHER_API_KEY`, `password` (and any future auth secret). These keys are removed from
-the exported `config` array so the file is safe to store/share. The exact denylist lives
-in one place (`utils/backup/secrets.js`) so it is easy to audit and extend.
+Only **`WEATHER_API_KEY`**. The login password is `process.env.PASSWORD` (an environment
+variable, never stored in `config.json` or the DB), so it is out of scope entirely and
+never appears in a backup. The denylist lives in one place
+(`utils/backup/secrets.js`) so it is easy to audit and extend.
 
 ---
 
@@ -51,7 +56,9 @@ Both endpoints use the existing `auth` + `requireAuth` middleware (admin-only):
 - **`GET /api/backup/export`** — builds the envelope, sends it as a downloadable JSON
   (`Content-Disposition: attachment; filename="flame-backup-<date>.json"`).
 - **`POST /api/backup/import`** — accepts the envelope in the request body, validates it,
-  writes a safety backup, then replaces current data.
+  writes a safety backup, then replaces current data. The router mounts its own
+  `express.json({ limit: '10mb' })` so a large backup (many apps/bookmarks + CSS) isn't
+  rejected by the global 100 kb body-parser default.
 
 Controllers live in `controllers/backup/` (`exportData.js`, `importData.js`, `index.js`)
 following the existing per-controller-folder pattern.
@@ -78,7 +85,7 @@ Versioned for forward-compatibility:
     "apps": [ ... ],
     "categories": [ ... ],
     "bookmarks": [ ... ],
-    "config": [ { "key": "...", "value": "...", "valueType": "...", "isLocked": 0 } ],
+    "config": { "customTitle": "Flame", "appsSameTab": false, "...": "..." },
     "themes": [ ... ],
     "queries": [ ... ],
     "customCss": "..."
@@ -97,11 +104,12 @@ Versioned for forward-compatibility:
 3. **DB writes in a single Sequelize transaction**:
    - `destroy` all bookmarks, then categories, then apps.
    - `bulkCreate` categories → bookmarks (preserving `categoryId`) → apps from the envelope.
-   - **config**: **upsert** each provided key (by `key`). Existing secret/locked keys
-     (`WEATHER_API_KEY`, `password`) are **left untouched** — a stripped export therefore
-     never wipes live secrets. No config rows are deleted.
 4. **File writes after the DB transaction commits**: overwrite `data/themes.json`,
    `data/customQueries.json`, and `public/flame.css` from the envelope.
+   - **config**: merge the envelope's config object over the *current* `data/config.json`,
+     then preserve the live `WEATHER_API_KEY` (the envelope omits it, so merging must not
+     blank it out). Write the result and refresh the cache via `loadConfig.setCache(...)`
+     so the running server picks it up without a restart.
    - The DB transaction rolls back on any DB error. File writes happen only after a
      successful commit; if a file write then fails, the pre-import snapshot from step 2
      allows manual recovery (documented in the response/error message).
@@ -142,7 +150,7 @@ No new Settings tab; no Redux store changes required (export/import are one-shot
 - **Server unit tests** (`node:test`, matching existing `test/` style):
   - `validateBackup` — accepts a good envelope; rejects missing `flameBackup`, wrong
     `schemaVersion`, and non-object input.
-  - `stripSecrets` — removes `WEATHER_API_KEY`/`password` and leaves other keys intact.
+  - `stripSecrets` — removes `WEATHER_API_KEY` and leaves all other config keys intact.
   - (Serializer shape asserted where it can run without a live DB; DB-dependent paths
     covered by the browser verification below.)
 - **Build:** `vite build` + `npm test` green.
