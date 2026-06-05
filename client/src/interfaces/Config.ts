@@ -38,4 +38,6 @@ export interface Config {
   useDefaults: boolean;
   updateUrl: string;
   showPopups: boolean;
+  // Seconds between app health-check probes (server-side).
+  statusCheckInterval: number;
 }

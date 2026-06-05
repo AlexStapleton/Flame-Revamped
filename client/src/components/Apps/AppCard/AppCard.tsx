@@ -1,6 +1,13 @@
 import classes from './AppCard.module.css';
 import { Icon } from '../../UI';
-import { iconParser, isImage, isSvg, isUrl, urlParser } from '../../../utility';
+import {
+  dashboardIconUrl,
+  iconParser,
+  isImage,
+  isSvg,
+  isUrl,
+  urlParser,
+} from '../../../utility';
 
 import { App } from '../../../interfaces';
 import { useSelector } from 'react-redux';
@@ -18,7 +25,18 @@ export const AppCard = ({ app }: Props): JSX.Element => {
   let iconEl: JSX.Element;
   const { icon } = app;
 
-  if (isImage(icon)) {
+  const dashUrl = dashboardIconUrl(icon);
+
+  if (dashUrl) {
+    iconEl = (
+      <img
+        src={dashUrl}
+        alt={`${app.name} logo`}
+        className={classes.CustomIcon}
+        draggable={false}
+      />
+    );
+  } else if (isImage(icon)) {
     const source = isUrl(icon) ? icon : `/uploads/${icon}`;
 
     iconEl = (
@@ -62,6 +80,14 @@ export const AppCard = ({ app }: Props): JSX.Element => {
         <h5>{app.name}</h5>
         <span>{!app.description.length ? displayUrl : app.description}</span>
       </div>
+      {app.status && (
+        <span
+          className={`${classes.StatusDot} ${
+            app.status === 'online' ? classes.online : classes.offline
+          }`}
+          title={`Status: ${app.status}`}
+        />
+      )}
     </a>
   );
 };

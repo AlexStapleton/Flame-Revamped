@@ -15,3 +15,4 @@ export * from './escapeRegex';
 export * from './parseTheme';
 export * from './arrayPartition';
 export * from './reorderPinned';
+export * from './iconSource';

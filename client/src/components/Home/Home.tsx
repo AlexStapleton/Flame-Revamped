@@ -53,6 +53,13 @@ export const Home = (): JSX.Element => {
     }
   }, []);
 
+  // While logged in, refresh apps periodically so health-status dots stay current.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const id = window.setInterval(() => getApps(), 60000);
+    return () => window.clearInterval(id);
+  }, [isAuthenticated]);
+
   // Load bookmark categories
   useEffect(() => {
     if (!categories.length) {

@@ -1,8 +1,26 @@
 .AppCard {
+  position: relative;
   width: 100%;
   display: flex;
   align-items: center;
   margin-bottom: 20px;
+}
+
+.StatusDot {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.online {
+  background: #43a047;
+}
+
+.offline {
+  background: #e53935;
 }
 
 .AppCardIcon {
