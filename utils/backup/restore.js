@@ -5,6 +5,7 @@ const App = require('../../models/App');
 const Category = require('../../models/Category');
 const Bookmark = require('../../models/Bookmark');
 const File = require('../File');
+const ErrorResponse = require('../ErrorResponse');
 const loadConfig = require('../loadConfig');
 const { SECRET_KEYS } = require('./secrets');
 const { buildBackup } = require('./serialize');
@@ -41,6 +42,10 @@ const applyBackup = async (envelope) => {
 
   // DB: wipe + recreate inside a transaction. Order matters for the FK:
   // bookmarks reference categories.
+  // Note: background jobs (runStatusChecks, syncApps) may write App rows during
+  // the wipe/recreate window. SQLite serializes the writes (busy_timeout), so the
+  // worst case is a benign lost status update that the next job tick reconciles.
+  // Two concurrent imports are not guarded against; the later one wins.
   await sequelize.transaction(async (t) => {
     await Bookmark.destroy({ where: {}, transaction: t });
     await Category.destroy({ where: {}, transaction: t });
@@ -57,12 +62,25 @@ const applyBackup = async (envelope) => {
     }
   });
 
-  // Files: only after a successful DB commit. If one of these throws, the
-  // safety backup is the recovery path (surfaced in the controller's error).
-  new File('data/themes.json').write({ themes: data.themes || [] }, true);
-  new File('data/customQueries.json').write({ queries: data.queries || [] }, true);
-  new File(CSS_PATH).write(typeof data.customCss === 'string' ? data.customCss : '', false);
-  await restoreConfig(data.config);
+  // Files: only after a successful DB commit. These are NOT transactional, so a
+  // failure here can leave the DB restored but files partially written. We catch
+  // and rethrow with the safety-snapshot path so the operator can recover by
+  // hand from data/backups/. (Recovery is manual — re-import the snapshot file.)
+  try {
+    new File('data/themes.json').write({ themes: data.themes || [] }, true);
+    new File('data/customQueries.json').write({ queries: data.queries || [] }, true);
+    new File(CSS_PATH).write(
+      typeof data.customCss === 'string' ? data.customCss : '',
+      false
+    );
+    await restoreConfig(data.config);
+  } catch (err) {
+    throw new ErrorResponse(
+      `Import partially applied: database was restored but writing settings files failed (${err.message}). ` +
+        `Your previous data was snapshotted to ${safetyBackupPath} — re-import that file to recover.`,
+      500
+    );
+  }
 
   return { safetyBackupPath };
 };

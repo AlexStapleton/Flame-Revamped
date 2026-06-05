@@ -54,6 +54,15 @@ test('validateBackup rejects an array data field', () => {
   assert.strictEqual(res.ok, false);
 });
 
+test('validateBackup rejects when data.apps is not an array', () => {
+  const res = validateBackup({
+    flameBackup: true,
+    schemaVersion: SCHEMA_VERSION,
+    data: { apps: { not: 'an array' } },
+  });
+  assert.strictEqual(res.ok, false);
+});
+
 const { readJsonArray } = require('../utils/backup/serialize');
 
 test('readJsonArray returns [] when a file is missing or unparseable', () => {

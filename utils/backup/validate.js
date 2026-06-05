@@ -18,6 +18,11 @@ const validateBackup = (obj) => {
   if (!obj.data || typeof obj.data !== 'object' || Array.isArray(obj.data)) {
     return { ok: false, error: 'Backup is missing its data section.' };
   }
+  for (const key of ['apps', 'categories', 'bookmarks']) {
+    if (obj.data[key] !== undefined && !Array.isArray(obj.data[key])) {
+      return { ok: false, error: `Backup field "${key}" must be a list.` };
+    }
+  }
   return { ok: true };
 };
 
