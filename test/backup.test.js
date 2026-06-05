@@ -19,3 +19,32 @@ test('stripSecrets does not mutate its input', () => {
 test('SECRET_KEYS contains WEATHER_API_KEY', () => {
   assert.ok(SECRET_KEYS.includes('WEATHER_API_KEY'));
 });
+
+const { validateBackup, SCHEMA_VERSION } = require('../utils/backup/validate');
+
+test('validateBackup accepts a well-formed envelope', () => {
+  const env = { flameBackup: true, schemaVersion: SCHEMA_VERSION, data: {} };
+  assert.deepStrictEqual(validateBackup(env), { ok: true });
+});
+
+test('validateBackup rejects non-objects', () => {
+  assert.strictEqual(validateBackup(null).ok, false);
+  assert.strictEqual(validateBackup('nope').ok, false);
+});
+
+test('validateBackup rejects a missing flameBackup marker', () => {
+  const res = validateBackup({ schemaVersion: SCHEMA_VERSION, data: {} });
+  assert.strictEqual(res.ok, false);
+  assert.match(res.error, /flame/i);
+});
+
+test('validateBackup rejects an unsupported schemaVersion', () => {
+  const res = validateBackup({ flameBackup: true, schemaVersion: 999, data: {} });
+  assert.strictEqual(res.ok, false);
+  assert.match(res.error, /version/i);
+});
+
+test('validateBackup rejects a missing data object', () => {
+  const res = validateBackup({ flameBackup: true, schemaVersion: SCHEMA_VERSION });
+  assert.strictEqual(res.ok, false);
+});
