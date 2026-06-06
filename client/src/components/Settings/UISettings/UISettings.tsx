@@ -227,6 +227,42 @@ export const UISettings = (): JSX.Element => {
         </span>
       </InputGroup>
 
+      {/* APPLICATIONS COLUMNS */}
+      <InputGroup>
+        <label htmlFor="appsColumns">Applications columns</label>
+        <input
+          type="number"
+          id="appsColumns"
+          name="appsColumns"
+          min={1}
+          max={12}
+          value={formData.appsColumns}
+          onChange={(e) => inputChangeHandler(e, { isNumber: true })}
+        />
+        <span>
+          Number of columns for the applications grid on large screens.
+          Narrower screens use fewer columns automatically.
+        </span>
+      </InputGroup>
+
+      {/* BOOKMARKS COLUMNS */}
+      <InputGroup>
+        <label htmlFor="bookmarksColumns">Bookmarks columns</label>
+        <input
+          type="number"
+          id="bookmarksColumns"
+          name="bookmarksColumns"
+          min={1}
+          max={12}
+          value={formData.bookmarksColumns}
+          onChange={(e) => inputChangeHandler(e, { isNumber: true })}
+        />
+        <span>
+          Number of columns for the bookmarks grid on large screens.
+          Narrower screens use fewer columns automatically.
+        </span>
+      </InputGroup>
+
       {/* === SECTIONS OPTIONS === */}
       <SettingsHeadline text="Sections" />
       {/* HIDE APPS */}

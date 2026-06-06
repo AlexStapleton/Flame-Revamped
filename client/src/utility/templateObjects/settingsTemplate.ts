@@ -21,6 +21,8 @@ export const uiSettingsTemplate: UISettingsForm = {
   hideSearch: false,
   disableAutofocus: false,
   dashboardWidth: 75,
+  appsColumns: 4,
+  bookmarksColumns: 4,
 };
 
 export const weatherSettingsTemplate: WeatherForm = {
