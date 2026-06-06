@@ -2,20 +2,25 @@ const asyncWrapper = require('../../middleware/asyncWrapper');
 const loadConfig = require('../../utils/loadConfig');
 const { writeFile } = require('fs/promises');
 
+// Keep only the keys from `body` that already exist in `existingConfig`, so a
+// request can't inject arbitrary keys to pollute config.json. Pure + testable.
+const pickKnownKeys = (existingConfig, body) => {
+  const updates = {};
+  for (const key of Object.keys(body || {})) {
+    if (Object.prototype.hasOwnProperty.call(existingConfig, key)) {
+      updates[key] = body[key];
+    }
+  }
+  return updates;
+};
+
 // @desc      Update config
 // @route     PUT /api/config/
 // @access    Public
 const updateConfig = asyncWrapper(async (req, res, next) => {
   const existingConfig = await loadConfig();
 
-  // Only allow updates to keys that already exist in the config, so arbitrary
-  // keys can't be injected to pollute config.json.
-  const updates = {};
-  for (const key of Object.keys(req.body)) {
-    if (Object.prototype.hasOwnProperty.call(existingConfig, key)) {
-      updates[key] = req.body[key];
-    }
-  }
+  const updates = pickKnownKeys(existingConfig, req.body);
 
   const newConfig = {
     ...existingConfig,
@@ -34,4 +39,5 @@ const updateConfig = asyncWrapper(async (req, res, next) => {
   });
 });
 
+updateConfig.pickKnownKeys = pickKnownKeys;
 module.exports = updateConfig;
