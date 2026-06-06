@@ -20,6 +20,7 @@ export const uiSettingsTemplate: UISettingsForm = {
   hideDate: false,
   hideSearch: false,
   disableAutofocus: false,
+  dashboardWidth: 75,
 };
 
 export const weatherSettingsTemplate: WeatherForm = {

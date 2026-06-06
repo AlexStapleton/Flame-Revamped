@@ -207,6 +207,26 @@ export const UISettings = (): JSX.Element => {
         <span>Names must be separated with semicolon</span>
       </InputGroup>
 
+      {/* === LAYOUT OPTIONS === */}
+      <SettingsHeadline text="Layout" />
+      {/* DASHBOARD WIDTH */}
+      <InputGroup>
+        <label htmlFor="dashboardWidth">Dashboard width (%)</label>
+        <input
+          type="number"
+          id="dashboardWidth"
+          name="dashboardWidth"
+          min={30}
+          max={100}
+          value={formData.dashboardWidth}
+          onChange={(e) => inputChangeHandler(e, { isNumber: true })}
+        />
+        <span>
+          Percentage of the page width the dashboard fills on large screens.
+          Lower values center the content; 100 fills edge to edge.
+        </span>
+      </InputGroup>
+
       {/* === SECTIONS OPTIONS === */}
       <SettingsHeadline text="Sections" />
       {/* HIDE APPS */}

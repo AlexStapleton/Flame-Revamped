@@ -34,5 +34,6 @@
   "useDefaults": true,
   "updateUrl": "",
   "showPopups": true,
-  "statusCheckInterval": 60
+  "statusCheckInterval": 60,
+  "dashboardWidth": 75
 }
