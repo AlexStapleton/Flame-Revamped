@@ -1,7 +1,6 @@
 ### v1.6.0 (2026-06-05)
 - Removed all references to the upstream `spiicytuna` fork across the README, dev build scripts, and docs; image/clone instructions now point at `AlexStapleton/Flame-Revamped` and the `alexstapo/flame-revamped` Docker Hub image. Fixed the Kubernetes ingress label examples to the `flame.pawelmalak/*` namespace the code actually reads.
-- Dependency updates: **TypeScript 5 => 6**, **@redux-devtools/extension 3 => 4**, **@types/node 24 => 25** (client); **docker-secret 1 => 2** (server).
-- Attempted but deferred — **Vite 7 => 8** (rolldown bundler) and **sqlite3 5 => 6**: both broke the multi-arch Docker build (Vite 8's native rolldown bindings fail `npm ci` under Alpine/musl from a cross-platform lockfile; sqlite3 6's arm64 stage is unvalidated). They'll return once validated against a Linux-built lockfile and a live `buildx` run.
+- Dependency major bumps (Vite 8, TypeScript 6, sqlite3 6, docker-secret 2, @redux-devtools/extension 4, @types/node 25) were attempted but **deferred** — they broke the multi-arch Docker build (Vite 8's native rolldown bindings fail `npm ci` under Alpine/musl; sqlite3 6's arm64 stage is unvalidated). The dependency tree in this release is unchanged from v1.5.1; the bumps will return on a dedicated branch validated against a Linux-built lockfile and a live `buildx` run.
 
 ### v1.5.1 (2026-06-05)
 - Fixed the update checker to track this fork (AlexStapleton/Flame-Revamped, `main`) instead of the upstream repo it was branched from — the App Version panel now reports this fork's releases.

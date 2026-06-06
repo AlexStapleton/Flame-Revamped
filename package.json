@@ -23,7 +23,7 @@
     "axios": "^1.13.2",
     "compression": "^1.8.1",
     "concurrently": "^10.0.3",
-    "docker-secret": "^2.0.6",
+    "docker-secret": "^1.2.4",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "express-rate-limit": "^8.5.2",
