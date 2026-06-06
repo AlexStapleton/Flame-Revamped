@@ -1,6 +1,6 @@
 import { ActionType } from '../action-types';
 import { Dispatch } from 'redux';
-import { ApiResponse, App, Config, NewApp } from '../../interfaces';
+import { ApiResponse, App, NewApp } from '../../interfaces';
 import {
   AddAppAction,
   DeleteAppAction,
@@ -13,6 +13,7 @@ import {
 } from '../actions/app';
 import axios from 'axios';
 import { applyAuth } from '../../utility';
+import { State } from '../reducers';
 
 export const getApps =
   () => async (dispatch: Dispatch<GetAppsAction<undefined | App[]>>) => {
@@ -222,18 +223,16 @@ export const reorderApps =
     }
   };
 
-export const sortApps = () => async (dispatch: Dispatch<SortAppsAction>) => {
-  try {
-    const res = await axios.get<ApiResponse<Config>>('/api/config');
-
+export const sortApps =
+  () => (dispatch: Dispatch<SortAppsAction>, getState: () => State) => {
+    // useOrdering already lives in the config store (seeded by getConfig on boot
+    // and refreshed on every updateConfig), so read it from state instead of
+    // making a redundant GET /api/config on every app add/update.
     dispatch({
       type: ActionType.sortApps,
-      payload: res.data.data.useOrdering,
+      payload: getState().config.config.useOrdering,
     });
-  } catch (err) {
-    console.log(err);
-  }
-};
+  };
 
 export const setEditApp =
   (app: App | null) => (dispatch: Dispatch<SetEditAppAction>) => {

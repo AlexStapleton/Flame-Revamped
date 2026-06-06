@@ -7,10 +7,10 @@ import {
   ApiResponse,
   Bookmark,
   Category,
-  Config,
   NewBookmark,
   NewCategory,
 } from '../../interfaces';
+import { State } from '../reducers';
 
 import {
   AddBookmarkAction,
@@ -282,17 +282,13 @@ export const updateBookmark =
   };
 
 export const sortCategories =
-  () => async (dispatch: Dispatch<SortCategoriesAction>) => {
-    try {
-      const res = await axios.get<ApiResponse<Config>>('/api/config');
-
-      dispatch({
-        type: ActionType.sortCategories,
-        payload: res.data.data.useOrdering,
-      });
-    } catch (err) {
-      console.log(err);
-    }
+  () => (dispatch: Dispatch<SortCategoriesAction>, getState: () => State) => {
+    // Read useOrdering from the config store instead of a redundant
+    // GET /api/config on every category add/update (see sortApps).
+    dispatch({
+      type: ActionType.sortCategories,
+      payload: getState().config.config.useOrdering,
+    });
   };
 
 export const reorderCategories =
@@ -388,18 +384,15 @@ export const reorderBookmarks =
   };
 
 export const sortBookmarks =
-  (categoryId: number) => async (dispatch: Dispatch<SortBookmarksAction>) => {
-    try {
-      const res = await axios.get<ApiResponse<Config>>('/api/config');
-
-      dispatch({
-        type: ActionType.sortBookmarks,
-        payload: {
-          orderType: res.data.data.useOrdering,
-          categoryId,
-        },
-      });
-    } catch (err) {
-      console.log(err);
-    }
+  (categoryId: number) =>
+  (dispatch: Dispatch<SortBookmarksAction>, getState: () => State) => {
+    // Read useOrdering from the config store instead of a redundant
+    // GET /api/config on every bookmark add/update (see sortApps).
+    dispatch({
+      type: ActionType.sortBookmarks,
+      payload: {
+        orderType: getState().config.config.useOrdering,
+        categoryId,
+      },
+    });
   };
