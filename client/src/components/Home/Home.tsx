@@ -54,10 +54,23 @@ export const Home = (): JSX.Element => {
   }, []);
 
   // While logged in, refresh apps periodically so health-status dots stay current.
+  // Skip ticks while the tab is hidden (nobody's looking at the dots) and instead
+  // refresh once when the tab regains focus — this avoids a steady background
+  // full-list fetch + grid re-render on tabs left open in the background.
   useEffect(() => {
     if (!isAuthenticated) return;
-    const id = window.setInterval(() => getApps(), 60000);
-    return () => window.clearInterval(id);
+
+    const refreshIfVisible = () => {
+      if (document.visibilityState === 'visible') getApps();
+    };
+
+    const id = window.setInterval(refreshIfVisible, 60000);
+    document.addEventListener('visibilitychange', refreshIfVisible);
+
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener('visibilitychange', refreshIfVisible);
+    };
   }, [isAuthenticated]);
 
   // Load bookmark categories
