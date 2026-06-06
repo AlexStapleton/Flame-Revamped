@@ -10,6 +10,15 @@ Most new findings cluster around two themes that appeared *after* the last audit
 (the app health-check feature and the client mutation flow): **redundant network
 round-trips** and **continuous DB write amplification**.
 
+> **Status (2026-06-05): N1–N6 all IMPLEMENTED and merged** (PRs #7–#11).
+> - **N1** (#7) — sort thunks read `useOrdering` from the store instead of refetching `/api/config`.
+> - **N2** (#8) — status checks write only when the status changed; pure `needsUpdate` unit-tested.
+> - **N5/N6** (#9) — search regex compiled once per query; Home cards narrow their `useSelector` and are `React.memo`-wrapped.
+> - **N3** (#10) — the 60s apps poll pauses while the tab is hidden and refreshes on refocus.
+> - **N4** (#11) — build precompresses to `.br`/`.gz`; `express-static-gzip` serves them (brotli preferred), verified at runtime.
+>
+> The SVG-loader item below is **correctness, not perf** — left for a separate change.
+
 ---
 
 ## Status of prior open items (re-verified in code)
