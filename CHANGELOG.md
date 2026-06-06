@@ -1,3 +1,8 @@
+### v1.7.0 (2026-06-06)
+- Added a configurable **dashboard width** (Settings → Interface → Layout). The page container is now a percentage-based, centered width driven by a `--dashboard-width` CSS variable instead of a fixed 250px side padding, which had squeezed the grid inward when zooming in (`Ctrl +`) on large screens. Default 75%.
+- Added configurable **grid column counts** for the applications and bookmarks grids (separate settings, next to dashboard width). The wide-screen (≥900px) column count is user-set; narrower breakpoints ramp down and are capped at the setting so smaller screens never show more columns than configured. Defaults of 4/4 reproduce the previous layout.
+- Both settings thread through the existing config pipeline (`initialConfig.json` allow-list, so `initConfig` migrates existing `config.json` on startup) and are applied as CSS variables on load, mirroring the theme system.
+
 ### v1.6.4 (2026-06-06)
 - Security: cleared the High-severity node-tar advisories (CVE-2026-23745, CVE-2026-23950, CVE-2026-31802 — symlink/hardlink path traversal and a Unicode-collision extraction race) flagged in Docker Hub image scans. `tar` reached the image only as an install-time transitive dependency of sqlite3 5.1.7 (the EOL tar 6.x line, which is not backported); bumping **sqlite3 5.1.7 => 6.0.1** moves the chain onto the patched **tar 7.5.16** (via node-gyp 12) with no overrides. sqlite3 is consumed only through Sequelize, so there is no application API change.
 - Security: overrode **uuid => ^11.1.1** to clear the moderate CVE-2026-41907 (missing buffer bounds check in v3/v5/v6) pulled in transitively via Sequelize; `npm audit` is now clean. Verified Sequelize UUID generation still works on uuid 11.
