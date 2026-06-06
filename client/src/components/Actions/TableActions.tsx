@@ -6,6 +6,7 @@ interface Entity {
   name: string;
   isPinned?: boolean;
   isPublic: boolean;
+  statusCheckEnabled?: boolean;
 }
 
 interface Props {
@@ -15,6 +16,10 @@ interface Props {
   pinHanlder?: (id: number) => void;
   changeVisibilty: (id: number) => void;
   showPin?: boolean;
+  // Apps-only: toggle health-check monitoring. Bookmarks have no status, so the
+  // action only renders when a handler is provided.
+  statusHandler?: (id: number) => void;
+  showStatus?: boolean;
 }
 
 export const TableActions = (props: Props): JSX.Element => {
@@ -25,9 +30,12 @@ export const TableActions = (props: Props): JSX.Element => {
     pinHanlder,
     changeVisibilty,
     showPin = true,
+    statusHandler,
+    showStatus = false,
   } = props;
 
   const _pinHandler = pinHanlder || function () {};
+  const _statusHandler = statusHandler || function () {};
 
   return (
     <td className={classes.TableActions}>
@@ -76,6 +84,24 @@ export const TableActions = (props: Props): JSX.Element => {
           <Icon icon="mdiEye" />
         )}
       </div>
+
+      {/* STATUS MONITORING (health check) — apps only */}
+      {showStatus && (
+        <div
+          className={classes.TableAction}
+          onClick={() => _statusHandler(entity.id)}
+          tabIndex={0}
+          title={`Status monitoring: ${
+            entity.statusCheckEnabled ? 'on' : 'off'
+          }`}
+        >
+          {entity.statusCheckEnabled ? (
+            <Icon icon="mdiHeartPulse" color="var(--color-accent)" />
+          ) : (
+            <Icon icon="mdiHeartPulse" />
+          )}
+        </div>
+      )}
     </td>
   );
 };
