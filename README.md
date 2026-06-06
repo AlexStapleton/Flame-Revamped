@@ -2,9 +2,9 @@
 
 ![Homescreen screenshot](.github/home.png)
 
-## Abstract
+## Overview
 
-_I am not the creator of Flame but I do want to keep it alive if only for my use.  In order to keep it alive, being the original dev has not updated since 2023, security patches and updates need to be applied.  This fork (Flame Revamped) is just "Legacy" Flame  {`docker pull alexstapo/flame-revamped:latest`}  with security updates and patches => so a fork + security => build => post here for others to use.
+To keep the Flame dashboard alive, Flame-Revamped includes security patches, package updates, and some new feature additions such as dragging Applications around on the home dashboard and status Up/Down.
 
 ## Description
 
