@@ -1,8 +1,13 @@
+### v1.5.1 (2026-06-05)
+- Fixed the update checker to track this fork (AlexStapleton/Flame-Revamped, `main`) instead of the upstream repo it was branched from — the App Version panel now reports this fork's releases.
+- Unified the app version onto this fork's v1.x release line (was 2.4.3). Entries below v1.5.0 use the prior 2.x app-version lineage inherited from upstream Flame.
+- Bumped CI/publish GitHub Actions to Node 24-compatible versions.
+- Updated server dependencies: axios 1.16.1 => 1.17.0, umzug 3.8.2 => 3.8.3, @types/express 4 => 5, concurrently 6 => 10.
+- Updated client dependencies: react/react-dom 19.2.5 => 19.2.7, react-redux 9.2.0 => 9.3.0, react-router-dom 7.16.0 => 7.17.0, vite 7.3.2 => 7.3.5, @types/react 19.2.14 => 19.2.17, @types/node 24.12.2 => 24.13.1.
+- Held back majors pending dedicated testing: sqlite3 6 and docker-secret 2 (native/runtime — need multi-arch build validation); Vite 8 + React/SVGR plugins and TypeScript 6 (Vite's rolldown bundler migration).
+
 ### v1.5.0 (2026-06-05)
 - Added config/data import & export — one-click Backup & Restore in Settings (apps, bookmarks, categories, config, themes, queries, custom CSS), with a pre-import safety snapshot. Secrets (weather API key) are excluded from exports.
-- Fixed the update checker to track this fork (AlexStapleton/Flame-Revamped, `main`) instead of the upstream repo it was branched from.
-- Bumped CI/publish GitHub Actions to Node 24-compatible versions.
-- Renumbered releases onto this fork's v1.x line. Entries below use the prior 2.x app-version lineage inherited from upstream Flame.
 
 ### v2.4.3 (2025-12-20)
 - Updated axios 1.11.0 => 1.13.2
