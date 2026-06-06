@@ -6,13 +6,20 @@
   margin-bottom: 20px;
 }
 
+/* Anchored to the card's own icon (top-left corner). It must NOT sit at the
+   card's right edge: the AppGrid columns are 1fr with no column gap, so a dot at
+   `right` lands in the gutter flush against the *next* column's icon and reads as
+   that neighbour's status (a green dot for app N appears to belong to app N+1,
+   and the rightmost column shows a stray dot at the page edge). */
 .StatusDot {
   position: absolute;
-  top: 2px;
-  right: 2px;
-  width: 8px;
-  height: 8px;
+  top: 0;
+  left: 0;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
+  /* Ring in the card colour so the dot stays visible over a light icon. */
+  box-shadow: 0 0 0 2px var(--color-background);
 }
 
 .online {
