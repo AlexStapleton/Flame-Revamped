@@ -1,6 +1,6 @@
 {
   "name": "flame",
-  "version": "1.5.1",
+  "version": "1.6.0",
   "description": "Self-hosted start page",
   "main": "index.js",
   "scripts": {
@@ -23,7 +23,7 @@
     "axios": "^1.13.2",
     "compression": "^1.8.1",
     "concurrently": "^10.0.3",
-    "docker-secret": "^1.2.4",
+    "docker-secret": "^2.0.6",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "express-rate-limit": "^8.5.2",
@@ -33,7 +33,7 @@
     "multer": "^2.0.2",
     "node-schedule": "^2.0.0",
     "sequelize": "^6.37.7",
-    "sqlite3": "^5.1.7",
+    "sqlite3": "^6.0.1",
     "umzug": "^3.8.2",
     "ws": "^8.2.3"
   },

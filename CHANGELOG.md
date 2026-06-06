@@ -1,3 +1,9 @@
+### v1.6.0 (2026-06-05)
+- Major dependency updates. Frontend build toolchain: **Vite 7 => 8** (migrated to the rolldown bundler — `manualChunks` converted to function form), **@vitejs/plugin-react 5 => 6**, **vite-plugin-svgr 4 => 5**, **TypeScript 5 => 6**, **@redux-devtools/extension 3 => 4**, **@types/node 24 => 25**, esbuild 0.27 => 0.28.
+- Backend: **sqlite3 5 => 6** (clears the high-severity `node-gyp`/`tar`/`cacache` build-time advisories — npm audit down from 9 issues incl. 5 high, to 2 moderate) and **docker-secret 1 => 2**.
+- Removed all references to the upstream `spiicytuna` fork across the README, dev build scripts, and docs; image/clone instructions now point at `AlexStapleton/Flame-Revamped` and the `alexstapo/flame-revamped` Docker Hub image. Fixed the Kubernetes ingress label examples to the `flame.pawelmalak/*` namespace the code actually reads.
+- Remaining advisories (2 moderate, sequelize => uuid) are accepted: the only "fix" npm offers is a breaking sequelize downgrade.
+
 ### v1.5.1 (2026-06-05)
 - Fixed the update checker to track this fork (AlexStapleton/Flame-Revamped, `main`) instead of the upstream repo it was branched from — the App Version panel now reports this fork's releases.
 - Unified the app version onto this fork's v1.x release line (was 2.4.3). Entries below v1.5.0 use the prior 2.x app-version lineage inherited from upstream Flame.

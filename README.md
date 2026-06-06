@@ -4,11 +4,11 @@
 
 ## Abstract
 
-_I am not the creator of Flame but I do want to keep it alive if only for my use.  In order to keep it alive, being the original dev has not updated since 2023, security patches and updates need to be applied.  This "master" branch is just "Legacy" Flame  {`docker pull ghcr.io/spiicytuna/flame:latest`}  with security updates and patches => so a fork + security => build => post here for others to use.
+_I am not the creator of Flame but I do want to keep it alive if only for my use.  In order to keep it alive, being the original dev has not updated since 2023, security patches and updates need to be applied.  This fork (Flame Revamped) is just "Legacy" Flame  {`docker pull alexstapo/flame-revamped:latest`}  with security updates and patches => so a fork + security => build => post here for others to use.
 
 ## Description
 
-Flame is self-hosted startpage for your server. This is a direct fork from [pawelmalak](https://github.com/pawelmalak/flame) with [secutity updates](https://github.com/spiicytuna/flame/commit/a8559b4e509e00e33f3947b5e9495c4e90759e6f) applied and built-in [healthcheck](https://github.com/spiicytuna/flame/commit/a02bf19f39a58c266825f0727e5ef21a7f953451) path (oh and not important but fun, heh, [updated mdi icons](https://github.com/spiicytuna/flame/commit/c9f11816d9c84379fac16dd589d178fae6cb81e4)). 
+Flame is self-hosted startpage for your server. This is a direct fork from [pawelmalak](https://github.com/pawelmalak/flame) with [secutity updates](https://github.com/AlexStapleton/Flame-Revamped/commit/a8559b4e509e00e33f3947b5e9495c4e90759e6f) applied and built-in [healthcheck](https://github.com/AlexStapleton/Flame-Revamped/commit/a02bf19f39a58c266825f0727e5ef21a7f953451) path (oh and not important but fun, heh, [updated mdi icons](https://github.com/AlexStapleton/Flame-Revamped/commit/c9f11816d9c84379fac16dd589d178fae6cb81e4)). 
 
 Flame is easy to setup and use. With built-in editors, it allows you to setup your very own application hub in no time - no file editing necessary.
 
@@ -46,36 +46,28 @@ docker run -d \
 > Publishing your own image to Docker Hub is automated via GitHub Actions — see
 > [docs/DOCKER_PUBLISH.md](docs/DOCKER_PUBLISH.md).
 
-#### Upstream image (original Flame)
-
-```sh
-# built with multiarch support
-docker pull ghcr.io/spiicytuna/flame:stable
-
-```
-
 #### Deployment
 
 ```sh
 # run container
-docker run -p 5005:5005 -v /path/to/data:/app/data -e PASSWORD=flame_password spiicytuna/flame
+docker run -p 5005:5005 -v /path/to/data:/app/data -e PASSWORD=flame_password alexstapo/flame-revamped
 ```
 
 #### Building images
 
 ```sh
-git clone https://github.com/spiicytuna/flame
+git clone https://github.com/AlexStapleton/Flame-Revamped
 
-cd flame
+cd Flame-Revamped
 
-git checkout master
+git checkout main
 
 # build multiarch image for amd64, armv7 and arm64
 # building failed multiple times with 2GB memory usage limit so you might want to increase it
 docker buildx build \
   --platform linux/arm/v7,linux/arm64,linux/amd64 \
   -f .docker/Dockerfile.multiarch \
-  -t ghcr.io/spiicytuna/flame:master \
+  -t alexstapo/flame-revamped:latest \
   . 
 ```
 
@@ -86,7 +78,7 @@ version: "3.8"
 
 services:
   flame:
-    image: ghcr.io/spiicytuna/flame:dev
+    image: alexstapo/flame-revamped:latest
     container_name: flame
     restart: unless-stopped
     ports:
@@ -146,8 +138,8 @@ skaffold dev
 
 ```sh
 # clone repository
-git clone https://github.com/spiicytuna/flame
-cd flame
+git clone https://github.com/AlexStapleton/Flame-Revamped
+cd Flame-Revamped
 
 # run only once
 npm run dev-init
@@ -239,10 +231,10 @@ In order to use the Kubernetes integration, each ingress must have the following
 ```yml
 metadata:
   annotations:
-  - flame.spiicytuna/type=application # "app" works too
-  - flame.spiicytuna/name=My container
-  - flame.spiicytuna/url=https://example.com
-  - flame.spiicytuna/icon=icon-name # optional, default is "kubernetes"
+  - flame.pawelmalak/type=application # "app" works too
+  - flame.pawelmalak/name=My container
+  - flame.pawelmalak/url=https://example.com
+  - flame.pawelmalak/icon=icon-name # optional, default is "kubernetes"
 ```
 
 > "Use Kubernetes Ingress API" option must be enabled for this to work. You can find it in Settings > Docker

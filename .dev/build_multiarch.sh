@@ -5,7 +5,7 @@ set -euo pipefail
 TAG="${1:-dev}"
 
 # ---- Config (override via env)
-OWNER="${OWNER:-spiicytuna}"
+OWNER="${OWNER:-alexstapleton}"
 IMAGE="${IMAGE:-flame}"
 CTX="${CTX:-.}"
 CACHE_REF="ghcr.io/$OWNER/${IMAGE}-buildcache:latest"

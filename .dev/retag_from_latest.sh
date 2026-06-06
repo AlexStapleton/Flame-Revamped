@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-OWNER="${OWNER:-spiicytuna}"     # override => OWNER=...
+OWNER="${OWNER:-alexstapleton}"     # override => OWNER=...
 
 if [[ $# -lt 1 ]]; then
   echo "usage: $0 <new-tag> [<new-tag-2> ...]" >&2

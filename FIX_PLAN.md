@@ -1,6 +1,6 @@
 # Flame – Fix Plan (status: current as of 2026-06-02)
 
-Goal: a working custom image that replaces the upstream `ghcr.io/spiicytuna/flame` image,
+Goal: a working custom image (`alexstapo/flame-revamped`),
 with the drag-to-reorder ("move items on the dashboard") issue resolved.
 
 Project: `flame@2.4.3`. Node/Express 5 + Sequelize/SQLite backend, React 19 + Vite 7 frontend.
