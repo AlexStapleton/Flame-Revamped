@@ -40,6 +40,7 @@ interface SortableAppRowProps {
   updateHandler: (id: number) => void;
   pinHanlder: (id: number) => void;
   changeVisibilty: (id: number) => void;
+  toggleStatusHandler: (id: number) => void;
 }
 
 // New component for the sortable table row
@@ -49,6 +50,7 @@ const SortableAppRow = ({
   updateHandler,
   pinHanlder,
   changeVisibilty,
+  toggleStatusHandler,
 }: SortableAppRowProps) => {
   const {
     attributes,
@@ -82,6 +84,8 @@ const SortableAppRow = ({
           updateHandler={updateHandler}
           pinHanlder={pinHanlder}
           changeVisibilty={changeVisibilty}
+          statusHandler={toggleStatusHandler}
+          showStatus={true}
         />
       )}
     </tr>
@@ -167,6 +171,14 @@ export const AppTable = (props: Props): JSX.Element => {
     updateApp(id, { ...app, isPublic: !app.isPublic });
   };
 
+  // Toggle health-check monitoring for an app. The probe falls back to the app's
+  // own URL when no custom statusCheckUrl is set, so flipping the flag is enough;
+  // the scheduled job picks it up on its next tick.
+  const toggleStatusHandler = (id: number) => {
+    const app = apps.find((a) => a.id === id) as App;
+    updateApp(id, { ...app, statusCheckEnabled: !app.statusCheckEnabled });
+  };
+
   return (
     <Fragment>
       <Message isPrimary={false}>
@@ -198,6 +210,7 @@ export const AppTable = (props: Props): JSX.Element => {
                 updateHandler={updateAppHandler}
                 pinHanlder={pinAppHandler}
                 changeVisibilty={changeAppVisibiltyHandler}
+                toggleStatusHandler={toggleStatusHandler}
               />
             ))}
           </SortableContext>
