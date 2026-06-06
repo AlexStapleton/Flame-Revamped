@@ -26,3 +26,13 @@ npm-debug.log*
 .claude
 .DS_Store
 *.swp
+*.swo
+.vscode
+.idea
+
+# OS cruft
+Thumbs.db
+
+# Test / packaging output
+coverage
+*.tgz
