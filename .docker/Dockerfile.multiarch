@@ -21,9 +21,15 @@ RUN apt-get update && apt-get install -y -q --no-install-recommends \
 WORKDIR /app
 ENV NODE_ENV=production npm_config_jobs=4 npm_config_python=/usr/bin/python3
 COPY package*.json ./
+# Build sqlite3 from source instead of using its published prebuilt. The
+# sqlite3 6.x linux prebuilt is linked against glibc 2.38, newer than
+# bookworm's 2.36, so the downloaded binary aborts at runtime with
+# "libm.so.6: version `GLIBC_2.38' not found" (ERR_DLOPEN_FAILED). The
+# toolchain installed above (python3/make/g++/libsqlite3-dev) compiles a
+# binary matched to this base image's glibc for every target arch.
 RUN --mount=type=cache,target=/root/.npm \
     --mount=type=cache,target=/root/.cache/node-gyp \
-    npm ci --omit=dev
+    npm ci --omit=dev --build-from-source=sqlite3
 
 # Bring in server sources
 COPY . .
