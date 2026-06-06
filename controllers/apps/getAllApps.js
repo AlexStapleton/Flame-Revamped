@@ -4,6 +4,20 @@ const { Sequelize } = require('sequelize');
 const loadConfig = require('../../utils/loadConfig');
 const { markActive } = require('../../utils/activity');
 
+// Status fields are admin-only — never expose infra health to guests. Strips them
+// from a plain app object, returning a copy. Pure + testable.
+const STATUS_FIELDS = [
+  'status',
+  'statusCheckedAt',
+  'statusCheckEnabled',
+  'statusCheckUrl',
+];
+const redactAppForGuest = (plainApp) => {
+  const o = { ...plainApp };
+  for (const field of STATUS_FIELDS) delete o[field];
+  return o;
+};
+
 // @desc      Get all apps
 // @route     GET /api/apps
 // @access    Public
@@ -30,14 +44,7 @@ const getAllApps = asyncWrapper(async (req, res, next) => {
   // Status fields are admin-only — never expose infra health to guests.
   const data = req.isAuthenticated
     ? apps
-    : apps.map((a) => {
-        const o = a.get({ plain: true });
-        delete o.status;
-        delete o.statusCheckedAt;
-        delete o.statusCheckEnabled;
-        delete o.statusCheckUrl;
-        return o;
-      });
+    : apps.map((a) => redactAppForGuest(a.get({ plain: true })));
 
   if (process.env.NODE_ENV === 'production') {
     // Set header to fetch containers info every time
@@ -53,4 +60,5 @@ const getAllApps = asyncWrapper(async (req, res, next) => {
   });
 });
 
+getAllApps.redactAppForGuest = redactAppForGuest;
 module.exports = getAllApps;
