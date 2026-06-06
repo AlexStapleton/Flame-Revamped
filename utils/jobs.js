@@ -3,6 +3,7 @@ const getExternalWeather = require('./getExternalWeather');
 const clearWeatherData = require('./clearWeatherData');
 const syncApps = require('./syncApps');
 const runStatusChecks = require('./runStatusChecks');
+const { isActive } = require('./activity');
 const Sockets = require('../Sockets');
 const Logger = require('./Logger');
 const loadConfig = require('./loadConfig');
@@ -60,7 +61,14 @@ module.exports = async function () {
   // App health checks every statusCheckInterval seconds (config, default 60).
   // A self-rescheduling timer keeps the cadence config-driven (vs a fixed cron).
   const intervalMs = Math.max(15, Number(statusCheckInterval) || 60) * 1000;
+  // Pause probing when nobody is looking. The status dots are only consumed by an
+  // open dashboard (which loads/polls GET /api/apps), so an unattended instance
+  // shouldn't keep hitting every monitored host. A view resumes it on the next
+  // tick. The window is generous relative to the poll cadence so a normally-open
+  // tab never trips it.
+  const idleWindowMs = Math.max(intervalMs * 2, 5 * 60 * 1000);
   const statusTick = async () => {
+    if (!isActive(idleWindowMs)) return;
     try {
       await runStatusChecks();
     } catch (err) {
