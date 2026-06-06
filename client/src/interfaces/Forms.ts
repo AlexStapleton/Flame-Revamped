@@ -33,6 +33,8 @@ export interface UISettingsForm {
   hideSearch: boolean;
   disableAutofocus: boolean;
   dashboardWidth: number;
+  appsColumns: number;
+  bookmarksColumns: number;
 }
 
 export interface DockerSettingsForm {

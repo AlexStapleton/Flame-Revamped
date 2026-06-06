@@ -35,5 +35,7 @@
   "updateUrl": "",
   "showPopups": true,
   "statusCheckInterval": 60,
-  "dashboardWidth": 75
+  "dashboardWidth": 75,
+  "appsColumns": 4,
+  "bookmarksColumns": 4
 }

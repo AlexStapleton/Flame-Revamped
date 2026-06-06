@@ -1,3 +1,8 @@
+/* Column counts come from config (Settings -> Interface -> Layout) via the
+   --bm-cols-* variables set by App.tsx. The fallbacks match the previous
+   hardcoded ramp, so the grid renders identically before the variables are
+   applied. Lower breakpoints are capped at the configured value in JS, so a
+   narrower screen never shows more columns than the wide-screen setting. */
 .BookmarkGrid {
   display: grid;
   grid-template-columns: repeat(1, 1fr);
@@ -5,18 +10,18 @@
 
 @media (min-width: 430px) {
   .BookmarkGrid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(var(--bm-cols-sm, 2), 1fr);
   }
 }
 
 @media (min-width: 670px) {
   .BookmarkGrid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(var(--bm-cols-md, 3), 1fr);
   }
 }
 
 @media (min-width: 900px) {
   .BookmarkGrid {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(var(--bm-cols-lg, 4), 1fr);
   }
 }

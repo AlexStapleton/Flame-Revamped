@@ -43,4 +43,8 @@ export interface Config {
   // Percentage of the page width the dashboard fills on large screens
   // (>= 1201px). Applied via the --dashboard-width CSS variable.
   dashboardWidth: number;
+  // Number of columns for the apps / bookmarks grids on large screens
+  // (>= 900px). Narrower breakpoints ramp down, capped at these values.
+  appsColumns: number;
+  bookmarksColumns: number;
 }

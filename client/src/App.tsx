@@ -103,6 +103,21 @@ export const App = (): JSX.Element => {
     document.body.style.setProperty('--dashboard-width', `${pct}%`);
   }, [config.dashboardWidth]);
 
+  // Push the configured column counts to the grids' CSS variables (read by
+  // AppGrid / BookmarkGrid). The wide-screen (lg) value is the setting; the
+  // narrower breakpoints are capped at it so a smaller screen never shows more
+  // columns than configured. Clamp to 1-12 to guard transient/invalid input.
+  useEffect(() => {
+    const setCols = (prefix: string, value: number) => {
+      const n = Number.isFinite(value) ? Math.min(12, Math.max(1, value)) : 4;
+      document.body.style.setProperty(`${prefix}-sm`, `${Math.min(2, n)}`);
+      document.body.style.setProperty(`${prefix}-md`, `${Math.min(3, n)}`);
+      document.body.style.setProperty(`${prefix}-lg`, `${n}`);
+    };
+    setCols('--apps-cols', Number(config.appsColumns));
+    setCols('--bm-cols', Number(config.bookmarksColumns));
+  }, [config.appsColumns, config.bookmarksColumns]);
+
   return (
     <>
       <BrowserRouter>
