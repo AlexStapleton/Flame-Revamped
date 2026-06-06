@@ -2,11 +2,16 @@ const asyncWrapper = require('../../middleware/asyncWrapper');
 const App = require('../../models/App');
 const { Sequelize } = require('sequelize');
 const loadConfig = require('../../utils/loadConfig');
+const { markActive } = require('../../utils/activity');
 
 // @desc      Get all apps
 // @route     GET /api/apps
 // @access    Public
 const getAllApps = asyncWrapper(async (req, res, next) => {
+  // Signal that a dashboard is being viewed so the status-check job keeps probing
+  // (it pauses on an unattended instance).
+  markActive();
+
   const { useOrdering: orderType } = await loadConfig();
 
   // apps visibility
