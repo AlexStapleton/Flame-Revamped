@@ -26,6 +26,14 @@
 
 @media (min-width: 1201px) {
   .Container {
-    padding: 50px 250px;
+    /* Percentage-based and centered so the content scales with the viewport.
+       A fixed side padding here (e.g. 250px) stays constant in CSS px while
+       Ctrl+ zoom shrinks the effective viewport, squeezing the grid inward.
+       --dashboard-width is set from config (Settings -> Interface) by App.tsx;
+       the fallback matches the uiSettingsTemplate default. */
+    width: var(--dashboard-width, 75%);
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 50px 0;
   }
 }

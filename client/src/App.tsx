@@ -94,6 +94,15 @@ export const App = (): JSX.Element => {
     }
   }, [loading, config.defaultTheme]);
 
+  // Push the configured dashboard width to the --dashboard-width CSS variable
+  // (read by Layout's .Container). Clamp to 30-100 so a transient empty/invalid
+  // value while typing in Settings can't collapse the layout.
+  useEffect(() => {
+    const raw = Number(config.dashboardWidth);
+    const pct = Number.isFinite(raw) ? Math.min(100, Math.max(30, raw)) : 75;
+    document.body.style.setProperty('--dashboard-width', `${pct}%`);
+  }, [config.dashboardWidth]);
+
   return (
     <>
       <BrowserRouter>

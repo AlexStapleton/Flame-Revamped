@@ -40,4 +40,7 @@ export interface Config {
   showPopups: boolean;
   // Seconds between app health-check probes (server-side).
   statusCheckInterval: number;
+  // Percentage of the page width the dashboard fills on large screens
+  // (>= 1201px). Applied via the --dashboard-width CSS variable.
+  dashboardWidth: number;
 }
