@@ -3,6 +3,7 @@ const { join } = require('path');
 const express = require('express');
 const helmet = require('helmet');
 const compression = require('compression');
+const expressStaticGzip = require('express-static-gzip');
 const morgan = require('morgan');
 const { errorHandler } = require('./middleware');
 const healthRoutes = require('./routes/health');
@@ -51,14 +52,24 @@ api.use('/health', healthRoutes);
 // Static files. Vite emits content-hashed filenames under /assets, so those are
 // safe to cache aggressively. Everything else (index.html, the user-editable
 // flame.css, customQueries.json) must stay fresh so edits show up immediately.
+//
+// express-static-gzip serves the build's precompressed .br/.gz siblings (emitted
+// by vite-plugin-compression) when the client accepts them — brotli preferred —
+// so the bundle/icon payloads aren't re-gzipped on every request. When no
+// precompressed variant or matching Accept-Encoding exists it falls back to the
+// raw file, which the compression() middleware above still gzips on the fly.
 api.use(
-  express.static(join(__dirname, 'public'), {
-    setHeaders: (res, filePath) => {
-      if (/[\\/]assets[\\/]/.test(filePath)) {
-        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-      } else {
-        res.setHeader('Cache-Control', 'no-cache');
-      }
+  expressStaticGzip(join(__dirname, 'public'), {
+    enableBrotli: true,
+    orderPreference: ['br', 'gz'],
+    serveStatic: {
+      setHeaders: (res, filePath) => {
+        if (/[\\/]assets[\\/]/.test(filePath)) {
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        } else {
+          res.setHeader('Cache-Control', 'no-cache');
+        }
+      },
     },
   })
 );
