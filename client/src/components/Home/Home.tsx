@@ -69,12 +69,15 @@ export const Home = (): JSX.Element => {
 
   useEffect(() => {
     if (localSearch) {
+      // Compile the query once and reuse it across every app/bookmark instead of
+      // rebuilding the same RegExp inside each filter callback (per item, per
+      // keystroke). No 'g' flag, so reusing the instance with .test() is safe.
+      const searchRegex = new RegExp(escapeRegex(localSearch), 'i');
+
       // Search through apps
       setAppSearchResult([
         ...apps.filter(({ name, description }) =>
-          new RegExp(escapeRegex(localSearch), 'i').test(
-            `${name} ${description}`
-          )
+          searchRegex.test(`${name} ${description}`)
         ),
       ]);
 
@@ -85,9 +88,7 @@ export const Home = (): JSX.Element => {
       category.bookmarks = categories
         .map(({ bookmarks }) => bookmarks)
         .flat()
-        .filter(({ name }) =>
-          new RegExp(escapeRegex(localSearch), 'i').test(name)
-        );
+        .filter(({ name }) => searchRegex.test(name));
 
       setBookmarkSearchResult([category]);
     } else {

@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import classes from './AppCard.module.css';
 import { Icon } from '../../UI';
 import {
@@ -17,8 +18,12 @@ interface Props {
   app: App;
 }
 
-export const AppCard = ({ app }: Props): JSX.Element => {
-  const { config } = useSelector((state: State) => state.config);
+const AppCardComponent = ({ app }: Props): JSX.Element => {
+  // Select only the field this card reads, so unrelated config changes don't
+  // re-render every card.
+  const appsSameTab = useSelector(
+    (state: State) => state.config.config.appsSameTab
+  );
 
   const [displayUrl, redirectUrl] = urlParser(app.url);
 
@@ -66,7 +71,7 @@ export const AppCard = ({ app }: Props): JSX.Element => {
   return (
     <a
       href={redirectUrl}
-      target={config.appsSameTab ? '' : '_blank'}
+      target={appsSameTab ? '' : '_blank'}
       rel="noreferrer"
       className={classes.AppCard}
       // Disable the browser's native link/image drag. In Firefox a draggable
@@ -91,3 +96,7 @@ export const AppCard = ({ app }: Props): JSX.Element => {
     </a>
   );
 };
+
+// Memoized: when the parent grid re-renders (e.g. on every search keystroke, or
+// a config change), cards whose `app` reference is unchanged skip re-rendering.
+export const AppCard = memo(AppCardComponent);

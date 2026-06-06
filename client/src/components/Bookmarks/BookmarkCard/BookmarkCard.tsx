@@ -1,4 +1,4 @@
-import { Fragment } from 'react';
+import { Fragment, memo } from 'react';
 
 // Redux
 import { useDispatch, useSelector } from 'react-redux';
@@ -26,13 +26,17 @@ interface Props {
   fromHomepage?: boolean;
 }
 
-export const BookmarkCard = (props: Props): JSX.Element => {
+const BookmarkCardComponent = (props: Props): JSX.Element => {
   const { category, fromHomepage = false } = props;
 
-  const {
-    config: { config },
-    auth: { isAuthenticated },
-  } = useSelector((state: State) => state);
+  // Select only the fields this card reads so unrelated state changes don't
+  // re-render every card.
+  const bookmarksSameTab = useSelector(
+    (state: State) => state.config.config.bookmarksSameTab
+  );
+  const isAuthenticated = useSelector(
+    (state: State) => state.auth.isAuthenticated
+  );
 
   const dispatch = useDispatch();
   const { setEditCategory } = bindActionCreators(actionCreators, dispatch);
@@ -110,7 +114,7 @@ export const BookmarkCard = (props: Props): JSX.Element => {
           return (
             <a
               href={redirectUrl}
-              target={config.bookmarksSameTab ? '' : '_blank'}
+              target={bookmarksSameTab ? '' : '_blank'}
               rel="noreferrer"
               key={`bookmark-${bookmark.id}`}
               // See AppCard: disable native drag so Firefox doesn't hijack the
@@ -126,3 +130,8 @@ export const BookmarkCard = (props: Props): JSX.Element => {
     </div>
   );
 };
+
+// Memoized: skip re-rendering categories whose `category` reference is unchanged
+// when the parent re-renders (e.g. the homescreen's 60s apps poll or a config
+// change unrelated to bookmarks).
+export const BookmarkCard = memo(BookmarkCardComponent);
