@@ -8,7 +8,8 @@ import {
   DndContext,
   closestCenter,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   DragEndEvent,
@@ -59,9 +60,14 @@ export const BookmarkGrid = (props: Props): JSX.Element => {
   const dragGuard = useDragClickGuard();
 
   const sensors = useSensors(
-    useSensor(PointerSensor, {
+    useSensor(MouseSensor, {
       // Let clicks through to the bookmark links; only a real drag reorders.
       activationConstraint: { distance: 8 },
+    }),
+    useSensor(TouchSensor, {
+      // Press-and-hold to reorder on touch; a quick swipe scrolls the page
+      // instead (movement beyond `tolerance` before `delay` aborts the drag).
+      activationConstraint: { delay: 200, tolerance: 8 },
     }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,

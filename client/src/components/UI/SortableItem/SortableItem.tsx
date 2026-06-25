@@ -28,7 +28,11 @@ export const SortableItem = ({ id, children }: Props): JSX.Element => {
     opacity: isDragging ? 0.5 : 1,
     zIndex: isDragging ? 1 : 'auto',
     cursor: 'grab',
-    touchAction: 'none' as const,
+    // pan-y (not none) lets the browser vertically scroll the page when a touch
+    // starts on a card. The TouchSensor's delay activation constraint is what
+    // distinguishes a scroll (quick swipe) from a reorder (press-and-hold) — so
+    // a flat `none` here would make the single-column mobile layout unscrollable.
+    touchAction: 'pan-y' as const,
   };
 
   return (
