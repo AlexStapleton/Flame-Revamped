@@ -1,3 +1,6 @@
+### v1.7.1 (2026-06-25)
+- Fixed mobile/touch dashboards being unscrollable: the homescreen app and bookmark grids set `touch-action: none` on every pinned card, so touching a card (which fills the single-column mobile viewport) gave the browser nowhere to start a scroll, and the `PointerSensor`'s 8px drag threshold turned any swipe into a reorder. Cards now use `touch-action: pan-y`, and the grids use a `MouseSensor` (desktop, unchanged 8px threshold) plus a `TouchSensor` with a 200ms press-and-hold activation. A quick swipe now scrolls; a press-and-hold then drag reorders — the standard mobile rearrange gesture. Desktop mouse/keyboard reordering is unchanged.
+
 ### v1.7.0 (2026-06-06)
 - Added a configurable **dashboard width** (Settings → Interface → Layout). The page container is now a percentage-based, centered width driven by a `--dashboard-width` CSS variable instead of a fixed 250px side padding, which had squeezed the grid inward when zooming in (`Ctrl +`) on large screens. Default 75%.
 - Added configurable **grid column counts** for the applications and bookmarks grids (separate settings, next to dashboard width). The wide-screen (≥900px) column count is user-set; narrower breakpoints ramp down and are capped at the setting so smaller screens never show more columns than configured. Defaults of 4/4 reproduce the previous layout.
