@@ -15,7 +15,6 @@
     "@types/react-router-dom": "^5.1.7",
     "axios": "^1.13.2",
     "dompurify": "^3.4.16",
-    "esbuild": "^0.27.2",
     "jwt-decode": "^4.0.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
@@ -58,5 +57,8 @@
     "vite-plugin-compression": "^0.5.1",
     "vite-plugin-svgr": "^4.5.0",
     "vite-tsconfig-paths": "^6.0.3"
+  },
+  "overrides": {
+    "esbuild": "^0.28.2"
   }
 }
