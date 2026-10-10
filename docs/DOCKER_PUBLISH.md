@@ -2,11 +2,14 @@
 
 This repo includes a GitHub Actions workflow
 ([`.github/workflows/docker-publish.yml`](../.github/workflows/docker-publish.yml))
-that builds the `linux/amd64` image from [`.docker/Dockerfile`](../.docker/Dockerfile)
-and pushes it to Docker Hub. Do the one-time setup below, then publishing is just
+that builds the `linux/amd64` and `linux/arm64` images from
+[`.docker/Dockerfile.multiarch`](../.docker/Dockerfile.multiarch) and pushes them
+to Docker Hub. Do the one-time setup below, then publishing is just
 pushing a git tag.
 
-The published image will be: `docker.io/<your-username>/flame-revamped`.
+The published image will be: `docker.io/<your-username>/flame-revamped`. This
+repo's own releases are published as
+[`alexstapo/flame-revamped`](https://hub.docker.com/r/alexstapo/flame-revamped).
 
 ---
 
@@ -85,18 +88,20 @@ If you'd rather build locally (needs Docker with buildx, logged in via
 
 ```sh
 docker buildx build \
-  --platform linux/amd64 \
-  -f .docker/Dockerfile \
+  --platform linux/amd64,linux/arm64 \
+  -f .docker/Dockerfile.multiarch \
   -t <username>/flame-revamped:latest \
   --push .
 ```
+
+Building `linux/arm64` on an amd64 machine needs QEMU emulation and is slow.
+For a quick single-arch build, `.docker/Dockerfile` works too.
 
 ---
 
 ## Notes
 - The build context excludes `node_modules`, `data`, `.env`, and build output via
   [`.dockerignore`](../.dockerignore), so no secrets or local state are baked in.
-- The image runs as the non-root `node` user and sets `NODE_ENV=production`.
-- To add ARM support later, switch the workflow's `file:` to
-  `.docker/Dockerfile.multiarch` and set
-  `platforms: linux/amd64,linux/arm64` (slower builds via emulation).
+- The image is based on `node:24-alpine`, runs as the non-root `node` user
+  (uid 1000) and sets `NODE_ENV=production`. See
+  [IMAGE_CVE_REVIEW.md](IMAGE_CVE_REVIEW.md) for why it moved from Debian to Alpine.

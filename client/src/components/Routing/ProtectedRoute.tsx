@@ -8,7 +8,12 @@ interface Props {
 
 export const ProtectedRoute = ({ children }: Props): JSX.Element => {
   const isAuthenticated = useSelector((state: State) => state.auth.isAuthenticated);
+  const checking = useSelector((state: State) => state.auth.checking);
   const location = useLocation();
+
+  // A stored token is still being validated. Redirecting now would send a
+  // logged-in admin who reloads /applications or /bookmarks to the homescreen.
+  if (checking) return <></>;
 
   if (!isAuthenticated) {
     // not authenticated => homepage

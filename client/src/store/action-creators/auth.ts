@@ -73,6 +73,9 @@ export const authError =
   (dispatch: Dispatch<AuthErrorAction>) => {
     const apiError = error as HttpError;
 
+    // Ends the token check, so ProtectedRoute stops waiting.
+    dispatch({ type: ActionType.authError });
+
     if (showNotification) {
       dispatch<any>({
         type: ActionType.createNotification,

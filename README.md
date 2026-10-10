@@ -1,36 +1,51 @@
-# Flame
+# Flame Revamped
 
 ![Homescreen screenshot](.github/home.png)
 
-## Overview
+Flame is a self-hosted start page for your server. You build your own hub of applications and bookmarks with built-in editors, so there are no config files to write by hand.
 
-To keep the Flame dashboard alive, Flame-Revamped includes security patches, package updates, and some new feature additions such as dragging Applications around on the home dashboard and status Up/Down.
+Flame Revamped is a maintained fork of [Flame by Paweł Malak](https://github.com/pawelmalak/flame). The original project is no longer updated, so this fork keeps it alive with security fixes, current dependencies and new features. Thanks to Paweł and the original contributors for the app this is built on.
 
-## Description
+## What's new in this fork
 
-Flame is self-hosted startpage for your server. This is a direct fork from [pawelmalak](https://github.com/pawelmalak/flame) with [secutity updates](https://github.com/AlexStapleton/Flame-Revamped/commit/a8559b4e509e00e33f3947b5e9495c4e90759e6f) applied and built-in [healthcheck](https://github.com/AlexStapleton/Flame-Revamped/commit/a02bf19f39a58c266825f0727e5ef21a7f953451) path (oh and not important but fun, heh, [updated mdi icons](https://github.com/AlexStapleton/Flame-Revamped/commit/c9f11816d9c84379fac16dd589d178fae6cb81e4)). 
+- **Pi-hole widget** for one or more Pi-holes (v5 and v6), with click-to-pause for logged-in admins.
+- **Security hardening:** a Content-Security-Policy, sanitized SVG icons, blocked `javascript:` and similar URLs, login tokens tied to the admin password, a random signing key per install, and a non-root container. Details are in [docs/SECURITY_PERFORMANCE_REVIEW.md](docs/SECURITY_PERFORMANCE_REVIEW.md).
+- **Faster homescreen:** about 114 KB of JavaScript instead of 759 KB, because the full icon set is no longer loaded up front.
+- **Smaller, cleaner image:** Node 24 on Alpine, with 0 known CVEs in the 1.8.2 scan ([docs/IMAGE_CVE_REVIEW.md](docs/IMAGE_CVE_REVIEW.md)). Published for amd64 and arm64.
+- **Drag-and-drop** reordering of apps and bookmarks on the homescreen when logged in (press and hold on touch screens).
+- **Up/down status** dots for apps.
+- **Backup & Restore** of apps, bookmarks, themes, settings and custom CSS from the settings page.
+- **Layout settings** for dashboard width and the number of app and bookmark columns.
+- **Kubernetes discovery works again** (it had been broken since `@kubernetes/client-node` 1.x).
 
-Flame is easy to setup and use. With built-in editors, it allows you to setup your very own application hub in no time - no file editing necessary.
+The full list of changes is in [CHANGELOG.md](CHANGELOG.md).
 
-## Functionality
-- 📝 Create, update, delete your applications and bookmarks directly from the app using built-in GUI editors
-- 📌 Pin your favourite items to the homescreen for quick and easy access
-- 🔍 Integrated search bar with local filtering, 11 web search providers and ability to add your own
-- 🔑 Authentication system to protect your settings, apps and bookmarks
-- 🔨 Dozens of options to customize Flame interface to your needs, including support for custom CSS, 15 built-in color themes and custom theme builder
-- ☀️ Weather widget with current temperature, cloud coverage and animated weather status
-- 🛡️ Pi-hole widget with today's queries, blocked queries, blocklist size and blocking status, for one or more Pi-holes (v5 and v6)
-- 🐳 Docker integration to automatically pick and add apps based on their labels
+## Features
+
+- 📝 Create, edit and delete applications and bookmarks from the app with built-in editors
+- 📌 Pin your favourite items to the homescreen
+- 🔍 Search bar with local filtering, 11 web search providers and the option to add your own
+- 🔑 Password login to protect your settings, apps and bookmarks
+- 🎨 16 built-in color themes, a theme editor and custom CSS
+- ☀️ Weather widget with temperature, cloud cover or humidity, and animated icons
+- 🛡️ Pi-hole widget with today's queries, blocked queries, blocklist size and blocking status
+- 🟢 Optional up/down health check per app
+- 🐳 Docker and Kubernetes integration that adds apps from container labels or ingress annotations
+- 💾 Backup & Restore
 
 ## Installation
 
-### With Docker (recommended)
+### Docker (recommended)
 
-#### This fork (Flame Revamped) — pull from Docker Hub
+Images are on Docker Hub as [`alexstapo/flame-revamped`](https://hub.docker.com/r/alexstapo/flame-revamped), for `linux/amd64` and `linux/arm64`.
+
+| Tag | Meaning |
+|-----|---------|
+| `latest` | The newest release |
+| `1.9` | The newest 1.9.x release |
+| `1.9.0` | Exactly that release |
 
 ```sh
-docker pull alexstapo/flame-revamped:latest
-
 docker run -d \
   --name flame \
   -p 5005:5005 \
@@ -40,43 +55,16 @@ docker run -d \
   alexstapo/flame-revamped:latest
 ```
 
-> Set a strong `PASSWORD` — the app refuses to start without one and warns on the
-> old default. The `data` volume must persist so the auto-generated JWT signing key
-> (`data/secret.key`) survives restarts.
->
-> Publishing your own image to Docker Hub is automated via GitHub Actions — see
-> [docs/DOCKER_PUBLISH.md](docs/DOCKER_PUBLISH.md).
+Then open `http://<your-server>:5005`. To log in, open the settings (the cog in the bottom left), go to **App** and enter your password.
 
-#### Deployment
+- `PASSWORD` is required. Flame refuses to start without it, and logs a warning if it is the old default `flame_password`.
+- Keep `/app/data` on a persistent volume. It holds the database, settings, uploaded icons, backups and `secret.key`, the key that signs login tokens.
+- The container runs as the non-root user `node` (uid 1000), so the data folder must be writable by uid 1000.
+- The image has a built-in healthcheck on `/health`.
 
-```sh
-# run container
-docker run -p 5005:5005 -v /path/to/data:/app/data -e PASSWORD=flame_password alexstapo/flame-revamped
-```
-
-#### Building images
-
-```sh
-git clone https://github.com/AlexStapleton/Flame-Revamped
-
-cd Flame-Revamped
-
-git checkout main
-
-# build multiarch image for amd64, armv7 and arm64
-# building failed multiple times with 2GB memory usage limit so you might want to increase it
-docker buildx build \
-  --platform linux/arm/v7,linux/arm64,linux/amd64 \
-  -f .docker/Dockerfile.multiarch \
-  -t alexstapo/flame-revamped:latest \
-  . 
-```
-
-#### Docker-Compose
+### Docker Compose
 
 ```yaml
-version: "3.8"
-
 services:
   flame:
     image: alexstapo/flame-revamped:latest
@@ -86,13 +74,13 @@ services:
       - "5005:5005"
     volumes:
       - /path/to/data:/app/data
-      # - /path/to/favicon.ico:/app/public/icons/favicon.ico  #  optional change to your own favicon.co
-      # - /var/log/flame-dash:/app/log  #  optional external access.log remote logging or fail2ban
-      # - /var/run/docker.sock:/var/run/docker.sock # optional but required for Docker integration
+      # - /path/to/favicon.ico:/app/public/icons/favicon.ico  # optional: your own favicon
+      # - /path/to/logs:/app/log  # optional: access.log for remote logging or fail2ban
+      # - /var/run/docker.sock:/var/run/docker.sock  # optional: Docker integration (see "Docker socket security")
     environment:
       - PASSWORD=changeme
-      # - WEATHER_CACHE_HOURS=6  #  optional to cut down calls to weather api
-      # - CSP=off  #  optional: disable the Content-Security-Policy if custom CSS/setups break
+      # - TRUST_PROXY=1  # optional: when Flame is behind a reverse proxy
+      # - CSP=off  # optional: turn off the Content-Security-Policy if a custom setup breaks
     healthcheck:
       test: ["CMD", "curl", "-fs", "http://localhost:5005/health"]
       interval: 60s
@@ -100,89 +88,94 @@ services:
       retries: 3
 ```
 
-##### Content-Security-Policy
+A commented example with Docker secrets is in [.docker/docker-compose.yml](.docker/docker-compose.yml).
 
-Flame sends a Content-Security-Policy that blocks injected scripts, frames and objects while still allowing icons and custom CSS from anywhere. If a custom setup breaks under it, set `CSP=off` to disable it (a warning is logged at startup).
+### Kubernetes
 
-##### Docker Secrets
+Kustomize manifests are in [k8s/base](k8s/base): a namespace, deployment, service, ingress, and a read-only service account for ingress discovery. Treat them as a starting point:
 
-All environment variables can be overwritten by appending `_FILE` to the variable value. For example, you can use `PASSWORD_FILE` to pass through a docker secret instead of `PASSWORD`. If both `PASSWORD` and `PASSWORD_FILE` are set, the docker secret will take precedent.
+- The deployment reads `PASSWORD` from a Secret named `flame`, which you create yourself (see below).
+- The data volume is an `emptyDir`, so data is lost when the pod is replaced. Replace it with a PersistentVolumeClaim for real use.
+- The image is `alexstapo/flame-revamped:latest`. Pin a version tag if you prefer.
 
-```bash
-# ./secrets/flame_password
-my_custom_secret_password_123
+```sh
+kubectl create namespace flame
+kubectl -n flame create secret generic flame --from-literal=password='<strong password>'
+kubectl apply -k k8s/base
+```
 
-# ./docker-compose.yml
+### Without Docker
+
+Flame needs Node.js 22.12 or newer (the image uses Node 24).
+
+```sh
+git clone https://github.com/AlexStapleton/Flame-Revamped
+cd Flame-Revamped
+npm run dev-init          # creates data/ and public/, installs server and client packages
+npm run build --prefix client
+cp -r client/dist/. public/
+cp .env.example .env      # then set PASSWORD in .env
+npm start
+```
+
+## Configuration
+
+Settings are changed in the app. These environment variables control the server:
+
+| Variable | Default | What it does |
+|----------|---------|--------------|
+| `PASSWORD` | none, required | The admin password. Changing it logs out every session. |
+| `SECRET` | generated | Key that signs login tokens. Leave it unset (or `CHANGE_ME`) and Flame generates one and saves it in `data/secret.key`. |
+| `PORT` | `5005` | Port the server listens on. |
+| `TRUST_PROXY` | off | Number of reverse proxies in front of Flame, for example `1` behind a single nginx or Traefik. Needed so login rate limiting and the access log see real client IPs. Leave it unset if Flame is exposed directly. |
+| `CSP` | on | Set to `off` to turn off the Content-Security-Policy. A warning is logged at startup. |
+| `NODE_USE_ENV_PROXY` | unset | Set to `1` if Flame reaches the internet through `HTTP_PROXY` / `HTTPS_PROXY`. Without it the weather widget and the update check ignore the proxy. |
+| `NODE_ENV` | `production` in the image | Use `development` only for local development, since it shows detailed errors. |
+
+### Docker secrets
+
+Flame reads every file in `/run/secrets` at startup. Each file sets the environment variable with the file's name in upper case, and overrides a value set the normal way. A secret named `password` therefore sets `PASSWORD`:
+
+```yaml
+services:
+  flame:
+    image: alexstapo/flame-revamped:latest
+    secrets:
+      - password
+
 secrets:
   password:
     file: ./secrets/flame_password
 ```
 
-#### Skaffold
+### Content-Security-Policy
 
-```sh
-# use skaffold
-skaffold dev
-```
+Flame sends a Content-Security-Policy that blocks injected scripts, frames and objects, while still allowing icons and custom CSS from anywhere. If a custom setup breaks under it, set `CSP=off` to turn it off.
 
-## Development
+### Upgrading
 
-### Technology
+Pull the new image and recreate the container. Database changes run automatically on startup. A few releases need one extra step:
 
-- Backend
-  - Node.js + Express
-  - Sequelize ORM + SQLite
-- Frontend
-  - React
-  - Redux
-  - TypeScript
-- Deployment
-  - Docker
-  - Kubernetes
+- **From before 1.8.0:** everyone has to log in once more, because login tokens are now tied to the password.
+- **From before 1.8.1, if you use a proxy for outgoing traffic:** also set `NODE_USE_ENV_PROXY=1`.
 
-### Creating dev environment
-
-```sh
-# clone repository
-git clone https://github.com/AlexStapleton/Flame-Revamped
-cd Flame-Revamped
-
-# run only once
-npm run dev-init
-
-# start backend and frontend development servers
-npm run dev
-```
-
-## Screenshots
-
-![Apps screenshot](.github/apps.png)
-
-![Bookmarks screenshot](.github/bookmarks.png)
-
-![Settings screenshot](.github/settings.png)
-
-![Themes screenshot](.github/themes.png)
+Each release's notes are in [CHANGELOG.md](CHANGELOG.md).
 
 ## Usage
 
-
 ### Search bar
 
-#### Searching
+By default the search bar filters your apps and bookmarks. To search the web with a specific provider, start your query with its prefix. For example, `/g what is docker` searches Google. The 11 built-in providers are DuckDuckGo, Google, Disroot, Wikipedia, YouTube, Reddit, IMDb, The Movie Database, Spotify, Deezer and Tidal. Their prefixes, and the option to add your own, are under Settings > General.
 
-The default search setting is to search through all your apps and bookmarks. If you want to search using specific search engine, you need to type your search query with selected prefix. For example, to search for "what is docker" using google search you would type: `/g what is docker`.
+More detail is in the original project's [search bar wiki page](https://github.com/pawelmalak/flame/wiki/Search-bar).
 
-For list of supported search engines, shortcuts and more about searching functionality visit the original [project wiki](https://github.com/pawelmalak/flame/wiki/Search-bar) (pawelmalak).
+### Weather widget
 
-### Setting up weather module
+1. Get an API key from [WeatherAPI.com](https://www.weatherapi.com/pricing.aspx). The free plan is plenty, since Flame makes fewer than 3,000 calls a month.
+2. Get the latitude and longitude for your location, from [latlong.net](https://www.latlong.net/convert-address-to-lat-long.html) or with "Click to get current location" in the settings.
+3. Enter both under Settings > Weather and save. The widget appears on the homescreen, and a new key works without a restart.
 
-1. Obtain API Key from [Weather API](https://www.weatherapi.com/pricing.aspx).
-   > Free plan allows for 1M calls per month. Flame is making less then 3K API calls per month.
-2. Get lat/long for your location. You can get them from [latlong.net](https://www.latlong.net/convert-address-to-lat-long.html).
-3. Enter and save data. Weather widget will now update and should be visible on Home page.
-
-### Setting up the Pi-hole widget
+### Pi-hole widget
 
 Works with Pi-hole v5 and v6, and with more than one Pi-hole (up to 10).
 
@@ -194,11 +187,19 @@ Works with Pi-hole v5 and v6, and with more than one Pi-hole (up to 10).
 
 When you're logged in, click a Pi-hole's shield to pause its blocking, and click the dimmed shield to turn blocking back on. How long a pause lasts is set under Settings > Pi-hole > Pause blocking: 30 seconds, 5 minutes (the default), 30 minutes, 1 hour, or until you click again. Visitors who aren't logged in can't toggle it.
 
-Flame's server talks to the Pi-holes, so passwords and tokens never reach the browser. They are hidden from visitors who aren't logged in and left out of backups, and so are the Pi-hole addresses. A Pi-hole that can't be reached shows as "unreachable", and a logged-in admin sees the reason when they hover over it. For an `https://` address with a self-signed certificate, set "Skip certificate check" to True, or use the `http://` address instead. v5 sends its token in the URL, so prefer a LAN or Docker-network address for it.
+Flame's server talks to the Pi-holes, so passwords and tokens never reach the browser. They are left out of backups, and visitors who aren't logged in see only each Pi-hole's name, not its address. A Pi-hole that can't be reached shows as "unreachable", and a logged-in admin sees the reason when they hover over it. For an `https://` address with a self-signed certificate, set "Skip certificate check" to True, or use the `http://` address instead. v5 sends its token in the URL, so prefer a LAN or Docker-network address for it.
+
+### App status checks
+
+Turn on "Health check" when adding or editing an app, and Flame shows a green or red dot for whether it is up. By default it checks the app's own URL every 60 seconds. You can give a separate "Status URL" instead.
+
+### Backup & Restore
+
+Under Settings > App, "Backup & Restore" exports your apps, bookmarks, categories, settings, themes, search providers and custom CSS to one file, and imports it again. Importing replaces what is there, and Flame saves a snapshot first. Secrets (the weather API key and Pi-hole passwords) are left out of the export, and the ones already set are kept on import.
 
 ### Docker integration
 
-In order to use the Docker integration, each container must have the following labels:
+Turn on "Use Docker API" under Settings > Docker. Flame then adds an app for each container with these labels:
 
 ```yml
 labels:
@@ -206,12 +207,10 @@ labels:
   - flame.name=My container
   - flame.url=https://example.com
   - flame.icon=icon-name # optional, default is "docker"
-# - flame.icon=custom to make changes in app. ie: custom icon upload
+# - flame.icon=custom # keeps an icon you uploaded in Flame
 ```
 
-> "Use Docker API" option must be enabled for this to work. You can find it in Settings > Docker
-
-You can also set up different apps in the same label adding `;` between each one.
+Several apps can come from one container. Separate the values with `;`:
 
 ```yml
 labels:
@@ -221,28 +220,9 @@ labels:
   - flame.icon=icon-name1;icon-name2
 ```
 
-If you want to use a remote docker host follow this instructions in the host:
+If a container has no `flame.url` label, Flame uses the host from its Traefik router rule.
 
-- Open the file `/lib/systemd/system/docker.service`, search for `ExecStart` and edit the value
-
-```text
-ExecStart=/usr/bin/dockerd -H tcp://0.0.0.0:${PORT} -H unix:///var/run/docker.sock
-```
-
->The above command will bind the docker engine server to the Unix socket as well as TCP port of your choice. “0.0.0.0” means docker-engine accepts connections from all IP addresses.
-
-- Restart the daemon and Docker service
-
-```shell
-sudo systemctl daemon-reload
-sudo service docker restart
-```
-
-- Test if it is working
-
-```shell
-curl http://${IP}:${PORT}/version
-```
+"Unpin stopped containers / other apps" under Settings > Docker unpins discovered apps whose container stops or disappears. It only touches apps Flame discovered itself, so apps you added by hand stay pinned.
 
 #### Docker socket security
 
@@ -260,40 +240,116 @@ services:
 
 Then set Flame's **Docker host** (Settings > Docker) to `docker-socket-proxy:2375`.
 
-- If you mount the socket directly instead, Flame runs as the non-root user `node`. It needs the socket's group to read it: `group_add: ["<docker gid>"]` (find the gid with `getent group docker`).
-- Remote hosts can be given with a scheme, e.g. `https://host:2376`. Client-certificate TLS is not supported, so put a TLS-terminating proxy in front of the daemon.
+- If you mount the socket directly instead, Flame needs the socket's group to read it, since it runs as `node`: add `group_add: ["<docker gid>"]` (find the gid with `getent group docker`).
+- The default Docker host, `localhost`, means the local socket. A remote daemon is given as `host:port`, or with a scheme such as `https://host:2376`. Client-certificate TLS is not supported, so put a TLS-terminating proxy in front of the daemon.
+
+<details>
+<summary>Exposing a remote Docker daemon over TCP</summary>
+
+On the Docker host, open `/lib/systemd/system/docker.service`, find `ExecStart` and change it to:
+
+```text
+ExecStart=/usr/bin/dockerd -H tcp://0.0.0.0:${PORT} -H unix:///var/run/docker.sock
+```
+
+This keeps the Unix socket and adds a TCP port that accepts connections from any address. Only do this on a trusted network, or use the socket proxy above. Then restart Docker and test it:
+
+```shell
+sudo systemctl daemon-reload
+sudo service docker restart
+curl http://${IP}:${PORT}/version
+```
+
+</details>
 
 ### Kubernetes integration
 
-In order to use the Kubernetes integration, each ingress must have the following annotations:
+Turn on "Use Kubernetes Ingress API" under Settings > Docker. Flame must run inside the cluster, with a service account that can list ingresses (the one in [k8s/base/rbac.yaml](k8s/base/rbac.yaml) can). Flame then adds an app for each ingress with these annotations:
 
 ```yml
 metadata:
   annotations:
-  - flame.pawelmalak/type=application # "app" works too
-  - flame.pawelmalak/name=My container
-  - flame.pawelmalak/url=https://example.com
-  - flame.pawelmalak/icon=icon-name # optional, default is "kubernetes"
-```
-
-> "Use Kubernetes Ingress API" option must be enabled for this to work. You can find it in Settings > Docker
-
-### Import HTML Bookmarks (Experimental)
-
-- Requirements
-  - python3
-  - pip packages: Pillow, beautifulsoup4
-- Backup your `db.sqlite` before running script!
-- Known Issues:
-  - generated icons are sometimes incorrect
-
-```bash
-pip3 install Pillow, beautifulsoup4
-
-cd flame/.dev
-python3 bookmarks_importer.py --bookmarks <path to bookmarks.html> --data <path to flame data folder>
+    flame.pawelmalak/type: application # "app" works too
+    flame.pawelmalak/name: My container
+    flame.pawelmalak/url: https://example.com
+    flame.pawelmalak/icon: icon-name # optional, default is "kubernetes"
 ```
 
 ### Custom CSS and themes
 
-See the original project wiki (pawelmalak) for [Custom CSS](https://github.com/pawelmalak/flame/wiki/Custom-CSS) and [Custom theme with CSS](https://github.com/pawelmalak/flame/wiki/Custom-theme-with-CSS).
+Custom CSS goes under Settings > CSS, and your own themes are made under Settings > Theme. The original project's wiki has guides for [custom CSS](https://github.com/pawelmalak/flame/wiki/Custom-CSS) and [a custom theme with CSS](https://github.com/pawelmalak/flame/wiki/Custom-theme-with-CSS).
+
+### Import HTML bookmarks (experimental)
+
+A script in `.dev` imports a browser's HTML bookmarks export. It has only been tried with Firefox exports, and the icons it makes are sometimes wrong. Back up `data/db.sqlite` before running it.
+
+```sh
+pip3 install Pillow beautifulsoup4
+python3 .dev/bookmarks_importer.py --bookmarks <path to bookmarks.html> --data <path to flame data folder>
+```
+
+## Screenshots
+
+![Apps screenshot](.github/apps.png)
+
+![Bookmarks screenshot](.github/bookmarks.png)
+
+![Settings screenshot](.github/settings.png)
+
+![Themes screenshot](.github/themes.png)
+
+## Development
+
+### Technology
+
+- Backend: Node.js, Express 5, Sequelize with SQLite
+- Frontend: React 19, Redux, TypeScript, built with Vite
+- Deployment: Docker (Node 24 on Alpine) and Kubernetes
+
+### Dev environment
+
+You need Node.js 22.12 or newer.
+
+```sh
+git clone https://github.com/AlexStapleton/Flame-Revamped
+cd Flame-Revamped
+
+cp .env.example .env    # then set PASSWORD and NODE_ENV=development
+npm run dev-init        # run once
+
+npm run dev             # starts the server on :5005 and Vite on :5173
+```
+
+Open `http://localhost:5173`. Vite sends `/api` calls to the server on port 5005.
+
+Checks that CI runs:
+
+```sh
+npm test                        # server tests
+npm run build --prefix client
+npm run typecheck --prefix client
+```
+
+### Building the image
+
+```sh
+docker buildx build \
+  --platform linux/amd64,linux/arm64 \
+  -f .docker/Dockerfile.multiarch \
+  -t flame-revamped:local \
+  .
+```
+
+Releases are published to Docker Hub by a GitHub Actions workflow when a `v*` tag is pushed. See [docs/DOCKER_PUBLISH.md](docs/DOCKER_PUBLISH.md).
+
+## More documentation
+
+- [CHANGELOG.md](CHANGELOG.md): what changed in each release
+- [docs/SECURITY_PERFORMANCE_REVIEW.md](docs/SECURITY_PERFORMANCE_REVIEW.md): the security and performance review behind 1.8.0
+- [docs/DEPENDENCY_MODERNIZATION.md](docs/DEPENDENCY_MODERNIZATION.md): the dependency upgrades in 1.8.1
+- [docs/IMAGE_CVE_REVIEW.md](docs/IMAGE_CVE_REVIEW.md): why the image moved to Alpine
+- [docs/DOCKER_PUBLISH.md](docs/DOCKER_PUBLISH.md): how images are built and published
+
+## Credits and license
+
+Flame was created by [Paweł Malak](https://github.com/pawelmalak/flame). Flame Revamped is maintained by [Alex Stapleton](https://github.com/AlexStapleton). Both are released under the [MIT License](LICENSE.md).

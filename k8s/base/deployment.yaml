@@ -22,7 +22,15 @@ spec:
           type: RuntimeDefault
       containers:
         - name: flame
-          image: shokohsc/flame
+          image: alexstapo/flame-revamped:latest
+          # Flame refuses to start without PASSWORD. Create the Secret first:
+          #   kubectl -n flame create secret generic flame --from-literal=password='<strong password>'
+          env:
+            - name: PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: flame
+                  key: password
           ports:
             - name: http
               containerPort: 5005
