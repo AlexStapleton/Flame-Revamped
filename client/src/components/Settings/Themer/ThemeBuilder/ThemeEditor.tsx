@@ -15,9 +15,7 @@ interface Props {
 }
 
 export const ThemeEditor = (props: Props): JSX.Element => {
-  const {
-    theme: { userThemes },
-  } = useSelector((state: State) => state);
+  const userThemes = useSelector((state: State) => state.theme.userThemes);
 
   const { deleteTheme, editTheme } = bindActionCreators(
     actionCreators,

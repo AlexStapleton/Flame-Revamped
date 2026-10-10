@@ -97,10 +97,8 @@ interface Props {
 }
 
 export const AppTable = (props: Props): JSX.Element => {
-  const {
-    apps: { apps },
-    config: { config },
-  } = useSelector((state: State) => state);
+  const apps = useSelector((state: State) => state.apps.apps);
+  const config = useSelector((state: State) => state.config.config);
 
   const dispatch = useDispatch();
   const { pinApp, deleteApp, reorderApps, createNotification, updateApp } =

@@ -39,10 +39,10 @@ export enum ContentType {
 
 export const Bookmarks = (props: Props): JSX.Element => {
   // Get Redux state
-  const {
-    bookmarks: { loading, categories, categoryInEdit },
-    auth: { isAuthenticated },
-  } = useSelector((state: State) => state);
+  const loading = useSelector((state: State) => state.bookmarks.loading);
+  const categories = useSelector((state: State) => state.bookmarks.categories);
+  const categoryInEdit = useSelector((state: State) => state.bookmarks.categoryInEdit);
+  const isAuthenticated = useSelector((state: State) => state.auth.isAuthenticated);
 
   // Get Redux action creators
   const dispatch = useDispatch();

@@ -23,10 +23,10 @@ import { bindActionCreators } from 'redux';
 import { actionCreators } from '../../../store';
 
 export const GeneralSettings = (): JSX.Element => {
-  const {
-    config: { loading, customQueries, config },
-    bookmarks: { categories },
-  } = useSelector((state: State) => state);
+  const loading = useSelector((state: State) => state.config.loading);
+  const customQueries = useSelector((state: State) => state.config.customQueries);
+  const config = useSelector((state: State) => state.config.config);
+  const categories = useSelector((state: State) => state.bookmarks.categories);
 
   const dispatch = useDispatch();
   const { updateConfig, sortApps, sortCategories, sortBookmarks } =

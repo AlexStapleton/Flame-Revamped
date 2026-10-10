@@ -17,8 +17,8 @@ type LocalAppInfo = { name?: string | null; version?: string | null; owner?: str
 
 export const AppDetails = (): JSX.Element => {
   const dispatch = useDispatch();
-  const { isAuthenticated } = useSelector((state: State) => state.auth);
-  const { config } = useSelector((state: State) => state.config);
+  const isAuthenticated = useSelector((state: State) => state.auth.isAuthenticated);
+  const config = useSelector((state: State) => state.config.config);
   const { updateConfig, createNotification } = bindActionCreators(actionCreators, dispatch);
 
   const [localData, setLocalData] = useState<LocalAppInfo>({});
