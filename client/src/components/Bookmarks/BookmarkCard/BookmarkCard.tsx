@@ -12,6 +12,7 @@ import { Bookmark, Category } from '../../../interfaces';
 // Other
 import classes from './BookmarkCard.module.css';
 import { Icon } from '../../UI';
+import { SafeSvgIcon } from '../../UI/Icons/SafeSvgIcon/SafeSvgIcon';
 import {
   dashboardIconUrl,
   iconParser,
@@ -95,11 +96,7 @@ const BookmarkCardComponent = (props: Props): JSX.Element => {
 
               iconEl = (
                 <div className={classes.BookmarkIcon}>
-                  <svg
-                    data-src={source}
-                    fill="var(--color-primary)"
-                    className={classes.BookmarkIconSvg}
-                  ></svg>
+                  <SafeSvgIcon src={source} className={classes.BookmarkIconSvg} />
                 </div>
               );
             } else {
