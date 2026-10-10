@@ -1,46 +1,36 @@
 const schedule = require('node-schedule');
-const getExternalWeather = require('./getExternalWeather');
+const refreshWeather = require('./refreshWeather');
 const clearWeatherData = require('./clearWeatherData');
 const syncApps = require('./syncApps');
 const createSyncTick = require('./syncTick');
 const runStatusChecks = require('./runStatusChecks');
 const { createStatusTick } = require('./statusTick');
 const { isActive } = require('./activity');
-const Sockets = require('../Sockets');
 const Logger = require('./Logger');
 const loadConfig = require('./loadConfig');
 const logger = new Logger();
 
 module.exports = async function () {
-  const { WEATHER_API_KEY, statusCheckInterval } = await loadConfig();
+  const { statusCheckInterval } = await loadConfig();
 
-  if (WEATHER_API_KEY != '') {
-    // Update weather data every 15 minutes
-    const weatherJob = schedule.scheduleJob(
-      'updateWeather',
-      '0 */15 * * * *',
-      async () => {
-        try {
-          const weatherData = await getExternalWeather();
+  // Weather jobs are always scheduled. The key is read on every run, so a key
+  // added in Settings takes effect without a restart.
+  // Update weather data every 15 minutes.
+  schedule.scheduleJob('updateWeather', '0 */15 * * * *', async () => {
+    try {
+      const { WEATHER_API_KEY } = await loadConfig();
+      if (!WEATHER_API_KEY) return;
 
-          Sockets.getSocket('weather').socket.send(JSON.stringify(weatherData));
-        } catch (err) {
-          if (WEATHER_API_KEY) {
-            logger.log(err.message, 'ERROR');
-          }
-        }
-      }
-    );
+      await refreshWeather();
+    } catch (err) {
+      logger.log(err.message, 'ERROR');
+    }
+  });
 
-    // Clear old weather data every 4 hours
-    const weatherCleanerJob = schedule.scheduleJob(
-      'clearWeather',
-      '0 5 */4 * * *',
-      async () => {
-        clearWeatherData();
-      }
-    );
-  }
+  // Clear old weather data every 4 hours
+  schedule.scheduleJob('clearWeather', '0 5 */4 * * *', async () => {
+    clearWeatherData();
+  });
 
   // Sync Docker/Kubernetes apps once a minute, but only while a dashboard is
   // being viewed (same idle window as status checks) and never overlapping a
