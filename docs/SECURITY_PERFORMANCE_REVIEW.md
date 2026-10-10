@@ -20,9 +20,15 @@ Analysed commit `77d1d4d` (v1.7.1) on 2026-10-10.
 | S1 | SVG icon XSS via `external-svg-loader` | **Fixed** |
 | S2 | `javascript://` URLs via search-bar redirect | **Fixed** |
 | S3 / P2 | `/health` log scan: spoofable, leaks the log, slow | **Fixed** |
-| S7 | Dependency advisories | **Mostly fixed** (see below) |
-| S4, S5, S6, S8, S9 | Remaining security items | Open |
-| P1, P3–P6, B1–B5 | Performance items and functional bugs | Open |
+| S4 | Unauthenticated resource exhaustion (WebSocket, JSON bodies) | **Fixed** |
+| S5 | No Content-Security-Policy | **Fixed** |
+| S6 | Tokens can't be revoked | **Fixed** (password-bound tokens) |
+| S7 | Dependency advisories | **Fixed**, except 1 accepted, unreachable item (see below) |
+| S8 | Docker integration risk | **Fixed** (code changes plus documentation) |
+| S9 | Smaller issues | **Fixed** |
+| S10 | **New:** one malformed WebSocket frame crashes the server | **Fixed** (verified) |
+| B1 | `/api/changelog` 500 in the single-arch image | **Fixed** |
+| P1, P3–P6, B2–B5 | Performance items and remaining functional bugs | Open |
 
 ### What changed and how it was verified
 
@@ -65,7 +71,74 @@ Analysed commit `77d1d4d` (v1.7.1) on 2026-10-10.
   - **Server:** 4 moderate advisories in `sprintf-js`, through `umzug → @rushstack/ts-command-line → argparse`. The only fix npm offers is a major downgrade of umzug, which runs the migrations.
   - **Client:** `esbuild` (low), which only affects the dev server on Windows.
 
-**Test suite.** 71/71 pass (43 existing plus 28 new). The client build succeeds.
+**S4: input limits.**
+
+- The WebSocket server only accepts upgrades on `/socket`, with `maxPayload: 1024`. Oversized frames close with code 1009.
+- The global JSON limit is 100 kb. `/api/backup/import` has its own 10 MB parser, mounted before the global one.
+- **Tests** in `test/limits.test.js`:
+  - a 200 KB body to a public route returns 413;
+  - a 2 MB import still reaches auth, so it gets 401, not 413.
+- **No Origin check on the socket.** It only broadcasts public weather data, and Origin checks break behind some proxies.
+
+**S10 (new, found while fixing S4): one malformed WebSocket frame crashes the server.**
+
+- **Cause.** v1.7.1 attached no `'error'` listener to WebSocket clients. So a single frame with a reserved opcode, sent *unauthenticated* to any path, threw `RangeError: Invalid WebSocket frame` and killed the Node process.
+- **Reproduced** against the v1.7.1 `Socket.js`: the process exited with code 1.
+- **Fixed** with a per-client `'error'` listener, which logs a warning and closes only that connection. The patched server survives the same frame.
+
+**S5: Content-Security-Policy.** The policy set through helmet:
+
+```
+default-src 'self'; script-src 'self'; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'; img-src * data: blob:; style-src 'self' 'unsafe-inline' https:; font-src 'self' data: https:; connect-src 'self' https: http: ws: wss:; worker-src 'self' blob:; manifest-src 'self'
+```
+
+- **Escape hatch:** `CSP=off` disables it and logs a warning. It is documented in the README and `.env.example`.
+- **Why `connect-src` stays broad:** `SafeSvgIcon` fetches external SVG icon URLs over both http and https.
+- **`/uploads`** keeps its stricter sandbox CSP.
+- **Verified in Chromium** on the merged branch:
+  - 0 CSP violations across the pages, with icons still rendering;
+  - an injected inline `<script>` and an `onerror` handler are both blocked.
+
+**S6: revocation on password change.**
+
+- **The binding.** Each JWT carries `pwf`, an HMAC-SHA256 keyed with `SECRET` over the password, truncated to 22 characters. Keying it means the claim doesn't leak a crackable password hash. `utils/verifyToken.js` checks `pwf` in constant time and pins `algorithms: ['HS256']`. Both the auth middleware and `/api/auth/validate` use it.
+- **Verified live.** After restarting with a new `PASSWORD`, the old token gets 401 and private apps disappear.
+- **Upgrade note.** Tokens issued before this change have no `pwf`, so everyone logs in once after upgrading. This is in the CHANGELOG.
+
+**S7: remaining advisories.**
+
+- **Client: 0 advisories.** The unused direct `esbuild` dependency was removed, vite went to 7.3.7, and an override sets `esbuild` to `^0.28.2`.
+- **Server: 4 moderate, accepted.** They are all `sprintf-js` through `umzug → @rushstack/ts-command-line → argparse`.
+  - No patched `sprintf-js` exists (affected is ≤ 1.1.3, the latest release).
+  - No `umzug` 3.x or `ts-command-line` release drops `argparse` 1.x.
+- **Why this is acceptable.** `umzug` loads its CLI module at require time, but Flame never runs the CLI. Wrapping `sprintf` during a full migration run counted 0 calls.
+
+**S8: Docker.**
+
+- `dockerHost` now accepts `https://host:2376`. Client-certificate TLS is not supported; use a TLS-terminating proxy.
+- The container query uses a proper `filters=` parameter.
+- The implicit global `match` is fixed.
+- The README documents a read-only `tecnativa/docker-socket-proxy`, and `group_add` for mounting the socket directly.
+
+**S9: smaller issues.**
+
+- **Guest data leaks.**
+  - `GET /api/apps/:id` now hides the status fields from guests.
+  - `GET /api/bookmarks` and `/api/bookmarks/:id` require the parent category to be public for guests, using an inner join.
+- **Backup import** filters `config` to known keys.
+- **Docker images.**
+  - The multiarch image is copied in as root and chowns only `data/`, `log/` and `public/`, and gains a HEALTHCHECK.
+  - The single-arch image now copies `CHANGELOG.md` (that also fixes B1).
+- **k8s `deployment.yaml`.**
+  - `runAsNonRoot`, seccomp `RuntimeDefault`, dropped capabilities and no privilege escalation.
+  - Resource requests and limits.
+  - Liveness and readiness probes on `/health`.
+  - `readOnlyRootFilesystem` stays false, because `public/flame.css` is written at runtime.
+- **Update check moved to the server.** Viewers' browsers no longer contact GitHub.
+  - `GET /api/version/latest` and `/api/version/latest/changelog` cache successes for 6 h and failures for 10 min.
+  - They accept only `https:` URLs, cap responses at 256 KB with a 5 s timeout, and allow `?force=1` only when authenticated.
+
+**Test suite.** 106/106 pass (43 existing plus 63 new). The client build succeeds.
 
 ---
 
