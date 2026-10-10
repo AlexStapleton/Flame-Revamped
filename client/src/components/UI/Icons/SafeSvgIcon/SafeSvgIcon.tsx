@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import DOMPurify from 'dompurify';
+import type DOMPurifyType from 'dompurify';
 
 // SVG icon URLs are untrusted (Docker labels, ingress annotations, uploads,
 // imported backups, external hosts). The SVG is fetched, sanitized with
@@ -24,15 +24,31 @@ const SANITIZE_CONFIG = {
   RETURN_DOM: true,
 } as const;
 
+// DOMPurify is only needed once an SVG icon is actually rendered, so it is
+// loaded on demand (once) instead of living in the entry bundle. If the import
+// fails the loader rejects and loadSvg() fails closed (renders nothing).
+let purifyPromise: Promise<typeof DOMPurifyType> | null = null;
+const loadPurify = (): Promise<typeof DOMPurifyType> => {
+  if (!purifyPromise) {
+    purifyPromise = import('dompurify').then((m) => m.default);
+    purifyPromise.catch(() => {
+      purifyPromise = null; // allow a retry on the next icon
+    });
+  }
+  return purifyPromise;
+};
+
 const cache = new Map<string, Promise<SVGSVGElement | null>>();
 
 const loadSvg = (url: string): Promise<SVGSVGElement | null> => {
   let pending = cache.get(url);
 
   if (!pending) {
-    pending = fetch(url)
-      .then((res) => (res.ok ? res.text() : null))
-      .then((text) => {
+    pending = Promise.all([
+      fetch(url).then((res) => (res.ok ? res.text() : null)),
+      loadPurify(),
+    ])
+      .then(([text, DOMPurify]) => {
         if (!text) return null;
         const body = DOMPurify.sanitize(text, {
           ...SANITIZE_CONFIG,
