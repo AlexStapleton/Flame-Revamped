@@ -58,8 +58,11 @@ export const autoLogin = () => async (dispatch: Dispatch<AutoLoginAction>) => {
       payload: token,
     });
 
-    dispatch<any>(getApps());
-    dispatch<any>(getCategories());
+    // No re-fetch of apps/categories here: every list request already sends
+    // the stored token (applyAuth), so whatever loaded them on this page load
+    // got the authenticated data. Re-fetching only duplicated both requests
+    // and re-rendered every card. An invalid token still re-fetches as a guest
+    // (authError below).
   } catch (err) {
     dispatch<any>(authError(err, false));
   }

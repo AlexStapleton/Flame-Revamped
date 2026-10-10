@@ -3,6 +3,7 @@ const Category = require('../../models/Category');
 const Bookmark = require('../../models/Bookmark');
 const { Sequelize } = require('sequelize');
 const loadConfig = require('../../utils/loadConfig');
+const { iconPathsFor } = require('../../utils/iconPaths');
 
 // @desc      Get all categories
 // @route     GET /api/categories
@@ -46,9 +47,17 @@ const getAllCategories = asyncWrapper(async (req, res, next) => {
       }));
   }
 
+  // MDI paths for the bookmark icons in this response (computed from the
+  // filtered output, so guests learn nothing about private bookmarks), so the
+  // client can draw them without a follow-up GET /api/icons.
+  const icons = iconPathsFor(
+    output.flatMap((c) => (c.bookmarks || []).map((b) => b.icon))
+  );
+
   res.status(200).json({
     success: true,
     data: output,
+    icons,
   });
 });
 

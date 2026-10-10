@@ -1,6 +1,6 @@
 import { ActionType } from '../action-types';
 import { Dispatch } from 'redux';
-import { ApiResponse, App, NewApp } from '../../interfaces';
+import { ApiResponse, App, IconPaths, NewApp } from '../../interfaces';
 import {
   AddAppAction,
   DeleteAppAction,
@@ -13,6 +13,7 @@ import {
 } from '../actions/app';
 import axios from 'axios';
 import { applyAuth } from '../../utility';
+import { primeIconCache } from '../../components/UI/Icons/Icon/iconCache';
 import { State } from '../reducers';
 
 export const getApps =
@@ -23,9 +24,13 @@ export const getApps =
     });
 
     try {
-      const res = await axios.get<ApiResponse<App[]>>('/api/apps', {
-        headers: applyAuth(),
-      });
+      const res = await axios.get<ApiResponse<App[]> & { icons?: IconPaths }>(
+        '/api/apps',
+        { headers: applyAuth() }
+      );
+
+      // Seed the icon cache before the cards render so they draw at once.
+      primeIconCache(res.data.icons);
 
       dispatch({
         type: ActionType.getAppsSuccess,

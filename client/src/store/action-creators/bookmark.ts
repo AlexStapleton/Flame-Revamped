@@ -1,12 +1,14 @@
 import axios from 'axios';
 import { Dispatch } from 'redux';
 import { applyAuth } from '../../utility';
+import { primeIconCache } from '../../components/UI/Icons/Icon/iconCache';
 import { ActionType } from '../action-types';
 
 import {
   ApiResponse,
   Bookmark,
   Category,
+  IconPaths,
   NewBookmark,
   NewCategory,
 } from '../../interfaces';
@@ -38,9 +40,13 @@ export const getCategories =
     });
 
     try {
-      const res = await axios.get<ApiResponse<Category[]>>('/api/categories', {
-        headers: applyAuth(),
-      });
+      const res = await axios.get<ApiResponse<Category[]> & { icons?: IconPaths }>(
+        '/api/categories',
+        { headers: applyAuth() }
+      );
+
+      // Seed the icon cache before the cards render so they draw at once.
+      primeIconCache(res.data.icons);
 
       dispatch({
         type: ActionType.getCategoriesSuccess,
