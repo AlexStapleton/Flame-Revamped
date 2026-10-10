@@ -5,12 +5,20 @@ import { App } from '../../../interfaces/App';
 
 import { AppCard } from '../AppCard/AppCard';
 import { Message } from '../../UI';
+import { hasStoredToken } from '../../../utility';
 
 // Reordering (and therefore @dnd-kit) is only possible for authenticated users,
 // so the sortable grid is split into its own lazy chunk. The plain grid is the
 // Suspense fallback, so there is no layout shift while it loads.
+const loadAppGridSortable = () => import('./AppGridSortable');
+
+// With a stored token the sortable grid will almost certainly be needed, so
+// start downloading it now rather than after the token is validated. Guests
+// never download it.
+if (hasStoredToken()) void loadAppGridSortable().catch(() => {});
+
 const AppGridSortable = lazy(() =>
-  import('./AppGridSortable').then((m) => ({ default: m.AppGridSortable }))
+  loadAppGridSortable().then((m) => ({ default: m.AppGridSortable }))
 );
 
 interface Props {

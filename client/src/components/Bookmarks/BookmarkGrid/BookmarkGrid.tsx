@@ -7,11 +7,18 @@ import { Category } from '../../../interfaces';
 
 import { BookmarkCard } from '../BookmarkCard/BookmarkCard';
 import { Message } from '../../UI';
+import { hasStoredToken } from '../../../utility';
 
 // @dnd-kit only loads when reordering is possible (authenticated); the plain
 // grid is the Suspense fallback so layout does not shift while it loads.
+const loadBookmarkGridSortable = () => import('./BookmarkGridSortable');
+
+// With a stored token, start the download now rather than after the token is
+// validated (see AppGrid). Guests never download it.
+if (hasStoredToken()) void loadBookmarkGridSortable().catch(() => {});
+
 const BookmarkGridSortable = lazy(() =>
-  import('./BookmarkGridSortable').then((m) => ({
+  loadBookmarkGridSortable().then((m) => ({
     default: m.BookmarkGridSortable,
   }))
 );

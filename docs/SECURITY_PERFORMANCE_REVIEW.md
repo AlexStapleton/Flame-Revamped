@@ -106,6 +106,33 @@ Changes:
   - Admin drag-reorder still works, including the post-drag click guard, checked in Chromium.
 - **Not done: replacing axios with `fetch`** (about 18 KB gzip). Every Redux action uses axios, so it's a larger refactor for a modest gain.
 
+**Load-path work (after the bundle work).**
+
+Measuring `main` after the bundle work showed that JS size was no longer the main cost. The main cost was extra round trips. On a throttled profile (4× CPU slowdown, 150 ms RTT), the `/api/icons` request came last in every load, and admins fetched apps and categories twice.
+
+Changes:
+
+- **Icon paths ride along with the data.** `GET /api/apps` and `GET /api/categories` return an `icons` map (`mdiName → path`) for the icons in that response (`utils/iconPaths.js`, which mirrors the client's `iconParser`).
+  - The client seeds its icon cache from it before rendering, so the homescreen no longer calls `/api/icons` at all.
+  - Category icons are computed from the guest-filtered output, so guests learn nothing about private bookmarks.
+- **Remaining `/api/icons` requests are more cacheable and never duplicated.** Names are sorted, so the same set always produces the same URL and hits the 24 h HTTP cache. Names already in flight share one request.
+- **`autoLogin` no longer re-fetches apps and categories.** Every list request already sends the stored token, so the second fetch only duplicated both requests and re-rendered every card. An invalid token still falls back to a guest re-fetch.
+- **The sortable grid chunks start downloading at startup when a token is stored,** instead of after `/api/auth/validate` returns. Guests still never download them.
+- **`mdiCog`, the homescreen's settings button, is bundled**, like `mdiCancel`, so it no longer costs a request of its own before data arrives.
+- **Functional fix: `isUrl` accepts any explicit `http(s)://` URL.** Before, icon URLs on single-label hosts (`http://nas/icon.png`, `http://localhost:8080/icon.svg`) were treated as upload filenames and broke.
+- **Results** (time until every card and icon is drawn; median of 7 Chromium runs; 30 apps, 50 bookmarks):
+
+| | Before | After |
+|---|---|---|
+| Slow profile, guest cold / repeat | 1,803 / 938 ms | 1,480 / 686 ms |
+| Slow profile, admin cold / repeat | 2,189 / 1,125 ms | 1,596 / 687 ms |
+| Desktop, guest cold / admin cold | 194 / 221 ms | 174 / 200 ms |
+| Requests per load, guest / admin | 19 / 26 | 18 / 23 |
+| JS on `/`, guest / admin (brotli) | 113.6 / 133.6 KB | 114.0 / 134.0 KB |
+
+- **Trade-off:** the list responses grow by the icon paths. For the test data, `/api/apps` went from 1.7 to 4.4 KB and `/api/categories` from 2.0 to 6.8 KB. That is about the size of the `/api/icons` responses they replace.
+- **Tried and dropped:** merging the sortable grids and their shared hook into one chunk with `manualChunks`. Rollup then moved most of the entry code into that chunk, so the change was reverted. Because the three small chunks now download in parallel at startup, the extra requests cost little.
+
 **Test suite after the performance work.** 149/149 pass. The client builds, with no `mdi` chunk. A Chromium end-to-end run on the integrated build re-checked the S1, S2 and S5 regressions: the token isn't stolen, `javascript:` URLs return 400, and there are 0 CSP violations.
 
 **Not covered by automated tests.**

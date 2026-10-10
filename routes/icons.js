@@ -2,16 +2,10 @@ const express = require('express');
 
 const router = express.Router();
 
-const NAME_RE = /^mdi[A-Z][A-Za-z0-9]*$/;
+const { NAME_RE, loadMdi: defaultLoadMdi } = require('../utils/iconPaths');
+
 const MAX_NAMES = 300;
 const MAX_QUERY_LENGTH = 8 * 1024;
-
-// @mdi/js is ~2.7 MB; load it on first request, not at startup.
-let mdiModule = null;
-const defaultLoadMdi = () => {
-  if (!mdiModule) mdiModule = require('@mdi/js');
-  return mdiModule;
-};
 
 // Pure helper: validate a `names` query value and look the icons up.
 // Returns { status: 400, error } or { status: 200, data }.
