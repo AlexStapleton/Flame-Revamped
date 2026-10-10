@@ -33,4 +33,13 @@ export const configTemplate: Config = {
   isKilometer: true,
   weatherData: 'cloud',
   hideDate: false,
+  // Same defaults as utils/init/initialConfig.json on the server.
+  automaticUpdates: false,
+  useDefaults: true,
+  updateUrl: '',
+  showPopups: true,
+  statusCheckInterval: 60,
+  dashboardWidth: 75,
+  appsColumns: 4,
+  bookmarksColumns: 4,
 };

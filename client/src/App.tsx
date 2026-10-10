@@ -131,7 +131,7 @@ export const App = (): JSX.Element => {
               path="/applications"
               element={
                 <ProtectedRoute>
-                  <Apps />
+                  <Apps searching={false} />
                 </ProtectedRoute>
               }
             />
@@ -139,7 +139,7 @@ export const App = (): JSX.Element => {
               path="/bookmarks"
               element={
                 <ProtectedRoute>
-                  <Bookmarks />
+                  <Bookmarks searching={false} />
                 </ProtectedRoute>
               }
             />
