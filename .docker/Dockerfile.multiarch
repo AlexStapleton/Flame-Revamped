@@ -50,11 +50,16 @@ RUN apt-get update && apt-get install -y -q --no-install-recommends \
 
 ENV NODE_ENV=production
 WORKDIR /app
-COPY --from=builder --chown=node:node /app /app
-# Create the writable dirs AND hand them to the non-root node user. Without the
-# chown these are created root-owned, so `node` can't write access.log / the
-# SQLite DB and the app crashes with EACCES on startup.
-RUN mkdir -p /app/data /app/log && chown -R node:node /app/data /app/log
+# Copy as root so the server code and node_modules stay read-only for the
+# non-root `node` user. Only the directories the app writes to are chowned:
+#   data/   config.json, secret.key, uploads, backups, SQLite DB
+#   log/    access.log
+#   public/ flame.css is rewritten at runtime when custom CSS is saved
+COPY --from=builder /app /app
+RUN mkdir -p /app/data /app/log \
+    && chown -R node:node /app/data /app/log /app/public
 USER node
 EXPOSE 5005
+HEALTHCHECK --interval=60s --timeout=10s --retries=3 \
+    CMD curl -fs http://localhost:5005/health || exit 1
 CMD ["node", "server.js"]
