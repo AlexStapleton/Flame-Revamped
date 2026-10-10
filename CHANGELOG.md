@@ -1,3 +1,11 @@
+### Unreleased
+Dependency modernization, part 1 (safe bumps). The full plan and the source of each build warning are in [docs/DEPENDENCY_MODERNIZATION.md](docs/DEPENDENCY_MODERNIZATION.md).
+
+- Server: express 5.3.0, express-rate-limit 8.7.1, express-static-gzip 3.0.2, helmet 8.3.0, ws 8.22.0.
+- Client: react / react-dom 19.3.0, @types/react / @types/react-dom 19.3.0, @types/node 24.19, prettier 3.9.
+- Removed unused client packages: `react-jwt`, `cross-env`, `@types/react-redux`, `@types/react-router-dom` (react-redux and react-router ship their own types).
+- `npm run dev-server` now uses Node's built-in `node --watch` instead of nodemon. This clears the 3 high `npm audit` findings (braces via nodemon's chokidar). Dev only, the Docker image is unaffected.
+
 ### v1.8.0 (2026-10-10)
 Security, performance and bug-fix release. Full findings and verification notes are in [docs/SECURITY_PERFORMANCE_REVIEW.md](docs/SECURITY_PERFORMANCE_REVIEW.md).
 
