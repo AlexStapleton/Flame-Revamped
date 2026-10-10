@@ -18,6 +18,13 @@ import { AppDetails } from './AppDetails/AppDetails';
 import { AuthForm } from './AppDetails/AuthForm/AuthForm';
 import { StyleSettings } from './StyleSettings/StyleSettings';
 
+// React Router 6+ dropped NavLink's activeClassName; className takes a
+// function of the link state instead.
+const navLinkClass = ({ isActive }: { isActive: boolean }): string =>
+  isActive
+    ? `${classes.SettingsNavLink} ${classes.SettingsNavLinkActive}`
+    : classes.SettingsNavLink;
+
 export const Settings = (): JSX.Element => {
   const isAuthenticated = useSelector((state: State) => state.auth.isAuthenticated);
 
@@ -31,50 +38,43 @@ export const Settings = (): JSX.Element => {
             <h2 className={classes.SettingsNavTitle}>Settings</h2>
             <NavLink
               to="/settings/app"
-              className={classes.SettingsNavLink}
-              activeClassName={classes.Active}
+              className={navLinkClass}
             >
               General
             </NavLink>
             <NavLink
               to="/settings/ui"
-              className={classes.SettingsNavLink}
-              activeClassName={classes.Active}
+              className={navLinkClass}
             >
               Interface
             </NavLink>
             <NavLink
               to="/settings/weather"
-              className={classes.SettingsNavLink}
-              activeClassName={classes.Active}
+              className={navLinkClass}
             >
               Weather
             </NavLink>
             <NavLink
               to="/settings/docker"
-              className={classes.SettingsNavLink}
-              activeClassName={classes.Active}
+              className={navLinkClass}
             >
               Docker
             </NavLink>
             <NavLink
               to="/settings/theme"
-              className={classes.SettingsNavLink}
-              activeClassName={classes.Active}
+              className={navLinkClass}
             >
               Theme
             </NavLink>
             <NavLink
               to="/settings/css"
-              className={classes.SettingsNavLink}
-              activeClassName={classes.Active}
+              className={navLinkClass}
             >
               CSS
             </NavLink>
             <NavLink
               to="/settings/details"
-              className={classes.SettingsNavLink}
-              activeClassName={classes.Active}
+              className={navLinkClass}
             >
               About
             </NavLink>
