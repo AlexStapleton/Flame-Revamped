@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { http } from '../../utility/http';
 import { Dispatch } from 'redux';
 import { applyAuth } from '../../utility';
 import { primeIconCache } from '../../components/UI/Icons/Icon/iconCache';
@@ -40,7 +40,7 @@ export const getCategories =
     });
 
     try {
-      const res = await axios.get<ApiResponse<Category[]> & { icons?: IconPaths }>(
+      const res = await http.get<ApiResponse<Category[]> & { icons?: IconPaths }>(
         '/api/categories',
         { headers: applyAuth() }
       );
@@ -60,7 +60,7 @@ export const getCategories =
 export const addCategory =
   (formData: NewCategory) => async (dispatch: Dispatch<AddCategoryAction>) => {
     try {
-      const res = await axios.post<ApiResponse<Category>>(
+      const res = await http.post<ApiResponse<Category>>(
         '/api/categories',
         formData,
         { headers: applyAuth() }
@@ -89,7 +89,7 @@ export const addBookmark =
   (formData: NewBookmark | FormData) =>
   async (dispatch: Dispatch<AddBookmarkAction>) => {
     try {
-      const res = await axios.post<ApiResponse<Bookmark>>(
+      const res = await http.post<ApiResponse<Bookmark>>(
         '/api/bookmarks',
         formData,
         { headers: applyAuth() }
@@ -118,7 +118,7 @@ export const pinCategory =
   (category: Category) => async (dispatch: Dispatch<PinCategoryAction>) => {
     try {
       const { id, isPinned, name } = category;
-      const res = await axios.put<ApiResponse<Category>>(
+      const res = await http.put<ApiResponse<Category>>(
         `/api/categories/${id}`,
         { isPinned: !isPinned },
         { headers: applyAuth() }
@@ -148,7 +148,7 @@ export const pinCategory =
 export const deleteCategory =
   (id: number) => async (dispatch: Dispatch<DeleteCategoryAction>) => {
     try {
-      await axios.delete<ApiResponse<{}>>(`/api/categories/${id}`, {
+      await http.delete<ApiResponse<{}>>(`/api/categories/${id}`, {
         headers: applyAuth(),
       });
 
@@ -173,7 +173,7 @@ export const updateCategory =
   (id: number, formData: NewCategory) =>
   async (dispatch: Dispatch<UpdateCategoryAction>) => {
     try {
-      const res = await axios.put<ApiResponse<Category>>(
+      const res = await http.put<ApiResponse<Category>>(
         `/api/categories/${id}`,
         formData,
         { headers: applyAuth() }
@@ -202,7 +202,7 @@ export const deleteBookmark =
   (bookmarkId: number, categoryId: number) =>
   async (dispatch: Dispatch<DeleteBookmarkAction>) => {
     try {
-      await axios.delete<ApiResponse<{}>>(`/api/bookmarks/${bookmarkId}`, {
+      await http.delete<ApiResponse<{}>>(`/api/bookmarks/${bookmarkId}`, {
         headers: applyAuth(),
       });
 
@@ -241,7 +241,7 @@ export const updateBookmark =
     >
   ) => {
     try {
-      const res = await axios.put<ApiResponse<Bookmark>>(
+      const res = await http.put<ApiResponse<Bookmark>>(
         `/api/bookmarks/${bookmarkId}`,
         formData,
         { headers: applyAuth() }
@@ -324,7 +324,7 @@ export const reorderCategories =
         })
       );
 
-      await axios.put<ApiResponse<{}>>(
+      await http.put<ApiResponse<{}>>(
         '/api/categories/0/reorder',
         updateQuery,
         { headers: applyAuth() }
@@ -379,7 +379,7 @@ export const reorderBookmarks =
         })
       );
 
-      await axios.put<ApiResponse<{}>>(
+      await http.put<ApiResponse<{}>>(
         '/api/bookmarks/0/reorder',
         updateQuery,
         { headers: applyAuth() }

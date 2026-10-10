@@ -10,7 +10,7 @@ import {
 import { ActionType } from '../action-types';
 import { Theme, ApiResponse, ThemeColors } from '../../interfaces';
 import { applyAuth, parseThemeToPAB } from '../../utility';
-import axios, { AxiosError } from 'axios';
+import { http, HttpError } from '../../utility/http';
 
 export const setTheme =
   (colors: ThemeColors, remeberTheme: boolean = true) =>
@@ -32,7 +32,7 @@ export const setTheme =
 export const fetchThemes =
   () => async (dispatch: Dispatch<FetchThemesAction>) => {
     try {
-      const res = await axios.get<ApiResponse<Theme[]>>('/api/themes');
+      const res = await http.get<ApiResponse<Theme[]>>('/api/themes');
 
       dispatch({
         type: ActionType.fetchThemes,
@@ -46,7 +46,7 @@ export const fetchThemes =
 export const addTheme =
   (theme: Theme) => async (dispatch: Dispatch<AddThemeAction>) => {
     try {
-      const res = await axios.post<ApiResponse<Theme>>('/api/themes', theme, {
+      const res = await http.post<ApiResponse<Theme>>('/api/themes', theme, {
         headers: applyAuth(),
       });
 
@@ -63,7 +63,7 @@ export const addTheme =
         },
       });
     } catch (err) {
-      const error = err as AxiosError<{ error: string }>;
+      const error = err as HttpError<{ error: string }>;
 
       dispatch<any>({
         type: ActionType.createNotification,
@@ -78,7 +78,7 @@ export const addTheme =
 export const deleteTheme =
   (name: string) => async (dispatch: Dispatch<DeleteThemeAction>) => {
     try {
-      const res = await axios.delete<ApiResponse<Theme[]>>(
+      const res = await http.delete<ApiResponse<Theme[]>>(
         `/api/themes/${name}`,
         { headers: applyAuth() }
       );
@@ -112,7 +112,7 @@ export const updateTheme =
   (theme: Theme, originalName: string) =>
   async (dispatch: Dispatch<UpdateThemeAction>) => {
     try {
-      const res = await axios.put<ApiResponse<Theme[]>>(
+      const res = await http.put<ApiResponse<Theme[]>>(
         `/api/themes/${originalName}`,
         theme,
         { headers: applyAuth() }

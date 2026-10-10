@@ -8,6 +8,7 @@ Dependency modernization, part 1 (safe bumps). The full plan and the source of e
 - Docker images and CI now run on Node 24 (the current LTS), up from Node 22. `engines.node` is now `>=22.12.0`, since Node 20 reached end of life in April 2026. The multiarch image compiles sqlite3 with node-gyp directly instead of using the `--build-from-source` flag, which npm 11 deprecates.
 - Client: @redux-devtools/extension 4 (same `composeWithDevTools` API, now ESM-only).
 - Client build: `vite-plugin-compression` (unmaintained since 2022) is replaced by `vite-plugin-compression2`, with the same max-level gzip and brotli settings. The .gz and .br files are byte-for-byte the same size as before.
+- axios is gone from both the server and the client. Both now use the built-in `fetch`, the client through a small `utility/http.ts` wrapper that keeps the same `{ data }` / `err.response.data` shape. The local Docker socket is read with `node:http`, since fetch can't use unix sockets. One behavior change: axios honored `HTTP_PROXY`/`HTTPS_PROXY` and Node's fetch does not by default. If Flame reaches the weather API or the update check through a proxy, set `NODE_USE_ENV_PROXY=1` as well.
 - `npm run dev-server` now uses Node's built-in `node --watch` instead of nodemon. This clears the 3 high `npm audit` findings (braces via nodemon's chokidar). Dev only, the Docker image is unaffected.
 
 ### v1.8.0 (2026-10-10)

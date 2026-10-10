@@ -11,7 +11,6 @@
     "@types/node": "^24.19.2",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
-    "axios": "^1.13.2",
     "dompurify": "^3.4.16",
     "jwt-decode": "^4.0.0",
     "react": "^19.3.0",

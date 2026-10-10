@@ -1,5 +1,5 @@
 import { useState, ChangeEvent, useEffect, FormEvent } from 'react';
-import axios from 'axios';
+import { http } from '../../../utility/http';
 
 // Redux
 import { useDispatch, useSelector } from 'react-redux';
@@ -57,7 +57,7 @@ export const WeatherSettings = (): JSX.Element => {
     await updateConfig(formData);
 
     // Update weather
-    axios
+    http
       .get<ApiResponse<Weather>>('/api/weather/update', {
         headers: applyAuth(),
       })

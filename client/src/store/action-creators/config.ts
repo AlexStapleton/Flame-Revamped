@@ -7,7 +7,7 @@ import {
   UpdateConfigAction,
   UpdateQueryAction,
 } from '../actions/config';
-import axios, { AxiosError } from 'axios';
+import { http, HttpError } from '../../utility/http';
 import { ApiResponse, Config, Query } from '../../interfaces';
 import { ActionType } from '../action-types';
 import { storeUIConfig, applyAuth } from '../../utility';
@@ -26,7 +26,7 @@ export const getConfig = () => async (dispatch: Dispatch<GetConfigAction>) => {
   try {
     // Send auth (when present) so the real weather API key is returned to an
     // authenticated admin; anonymous visitors get a masked value.
-    const res = await axios.get<ApiResponse<Config>>('/api/config', {
+    const res = await http.get<ApiResponse<Config>>('/api/config', {
       headers: applyAuth(),
     });
 
@@ -51,7 +51,7 @@ export const updateConfig =
   (formData: ConfigFormData) =>
   async (dispatch: Dispatch<UpdateConfigAction>) => {
     try {
-      const res = await axios.put<ApiResponse<Config>>(
+      const res = await http.put<ApiResponse<Config>>(
         '/api/config',
         formData,
         {
@@ -84,7 +84,7 @@ export const updateConfig =
 export const fetchQueries =
   () => async (dispatch: Dispatch<FetchQueriesAction>) => {
     try {
-      const res = await axios.get<ApiResponse<Query[]>>('/api/queries');
+      const res = await http.get<ApiResponse<Query[]>>('/api/queries');
 
       dispatch({
         type: ActionType.fetchQueries,
@@ -98,7 +98,7 @@ export const fetchQueries =
 export const addQuery =
   (query: Query) => async (dispatch: Dispatch<AddQueryAction>) => {
     try {
-      const res = await axios.post<ApiResponse<Query>>('/api/queries', query, {
+      const res = await http.post<ApiResponse<Query>>('/api/queries', query, {
         headers: applyAuth(),
       });
 
@@ -107,7 +107,7 @@ export const addQuery =
         payload: res.data.data,
       });
     } catch (err) {
-      const error = err as AxiosError<{ error: string }>;
+      const error = err as HttpError<{ error: string }>;
 
       dispatch<any>({
         type: ActionType.createNotification,
@@ -122,7 +122,7 @@ export const addQuery =
 export const deleteQuery =
   (prefix: string) => async (dispatch: Dispatch<DeleteQueryAction>) => {
     try {
-      const res = await axios.delete<ApiResponse<Query[]>>(
+      const res = await http.delete<ApiResponse<Query[]>>(
         `/api/queries/${prefix}`,
         {
           headers: applyAuth(),
@@ -142,7 +142,7 @@ export const updateQuery =
   (query: Query, oldPrefix: string) =>
   async (dispatch: Dispatch<UpdateQueryAction>) => {
     try {
-      const res = await axios.put<ApiResponse<Query[]>>(
+      const res = await http.put<ApiResponse<Query[]>>(
         `/api/queries/${oldPrefix}`,
         query,
         {
