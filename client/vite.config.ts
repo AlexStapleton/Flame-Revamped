@@ -2,7 +2,8 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import svgr from 'vite-plugin-svgr';
 import tsconfigPaths from 'vite-tsconfig-paths';
-import viteCompression from 'vite-plugin-compression';
+import { constants } from 'node:zlib';
+import { compression, defineAlgorithm } from 'vite-plugin-compression2';
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -15,10 +16,13 @@ export default defineConfig({
     // express-static-gzip in api.js). Brotli at quality 11 also beats the
     // on-the-fly gzip default — a meaningful first-load win for the large @mdi
     // chunk, especially on low-power ARM/Raspberry Pi hosts.
-    viteCompression({ algorithm: 'gzip', ext: '.gz', threshold: 1024 }),
-    viteCompression({
-      algorithm: 'brotliCompress',
-      ext: '.br',
+    compression({
+      algorithms: [
+        defineAlgorithm('gzip', { level: constants.Z_BEST_COMPRESSION }),
+        defineAlgorithm('brotliCompress', {
+          params: { [constants.BROTLI_PARAM_QUALITY]: constants.BROTLI_MAX_QUALITY },
+        }),
+      ],
       threshold: 1024,
     }),
   ],
