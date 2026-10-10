@@ -5,6 +5,7 @@ import { Icon as MDIcon } from '@mdi/react';
 // A named import is tree-shaken to this single path string. It is the fallback
 // for unknown icon names and for failed requests, so it is always available.
 import { mdiCancel } from '@mdi/js';
+import { createBatchScheduler } from './batchScheduler';
 
 interface Props {
   icon: string;
@@ -14,12 +15,11 @@ interface Props {
 // The full @mdi/js set is ~2.7MB. Icon names are user-chosen strings resolved at
 // runtime, so it can't be tree-shaken, and shipping it to every visitor just to
 // draw a handful of icons is wasteful. Instead the server (GET /api/icons)
-// returns only the paths we ask for. Names requested in the same tick are
-// batched into one request, and results are kept in a module-level cache so
-// later renders resolve synchronously (no flicker).
+// returns only the paths we ask for. Names requested close together are
+// batched into one request (see batchScheduler), and results are kept in a
+// module-level cache so later renders resolve synchronously (no flicker).
 const cache = new Map<string, string>([['mdiCancel', mdiCancel]]);
 const waiting = new Map<string, Array<(path: string) => void>>();
-let flushScheduled = false;
 
 // The server rejects requests with more than 300 names.
 const MAX_NAMES_PER_REQUEST = 250;
@@ -52,7 +52,6 @@ const fetchChunk = async (
 };
 
 const flush = (): void => {
-  flushScheduled = false;
   const batch = new Map(waiting);
   waiting.clear();
   const names = [...batch.keys()];
@@ -62,16 +61,19 @@ const flush = (): void => {
   }
 };
 
+// The homescreen mounts icons over several ticks (navbar cog first, then the
+// app and bookmark cards). A 0ms flush would send one request per tick. Waiting
+// 20ms after the last request lets a page load share a single request, and the
+// 100ms cap from the first request keeps a continuous stream from delaying it.
+const scheduler = createBatchScheduler(flush, { debounceMs: 20, maxWaitMs: 100 });
+
 const requestIcon = (name: string): Promise<string> =>
   new Promise((resolve) => {
     const resolvers = waiting.get(name);
     if (resolvers) resolvers.push(resolve);
     else waiting.set(name, [resolve]);
 
-    if (!flushScheduled) {
-      flushScheduled = true;
-      setTimeout(flush, 0);
-    }
+    scheduler.schedule();
   });
 
 export const Icon = (props: Props): JSX.Element => {
