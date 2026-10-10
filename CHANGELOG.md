@@ -4,6 +4,7 @@ Dependency modernization, part 1 (safe bumps). The full plan and the source of e
 - Server: express 5.3.0, express-rate-limit 8.7.1, express-static-gzip 3.0.2, helmet 8.3.0, ws 8.22.0.
 - Client: react / react-dom 19.3.0, @types/react / @types/react-dom 19.3.0, @types/node 24.19, prettier 3.9.
 - Removed unused client packages: `react-jwt`, `cross-env`, `@types/react-redux`, `@types/react-router-dom` (react-redux and react-router ship their own types).
+- Replaced umzug with a small built-in migration runner (`db/migrator.js`). It uses the same `SequelizeMeta` table, so existing databases carry on unchanged, and a database migrated by this version still works with v1.8.0. This removes the `lodash.get` and `lodash.isequal` build warnings and the 4 moderate `sprintf-js` advisories that S7 had accepted. `npm audit` on the server is now clean.
 - `npm run dev-server` now uses Node's built-in `node --watch` instead of nodemon. This clears the 3 high `npm audit` findings (braces via nodemon's chokidar). Dev only, the Docker image is unaffected.
 
 ### v1.8.0 (2026-10-10)
