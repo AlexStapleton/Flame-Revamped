@@ -1,20 +1,22 @@
 const asyncWrapper = require('../../middleware/asyncWrapper');
 const loadConfig = require('../../utils/loadConfig');
 
-// Never expose the weather API key or the Pi-hole password to unauthenticated
-// clients. The public homescreen only needs to know whether weather / Pi-hole
-// is configured (a truthy value) to render the widget, so mask the real values
-// to 'true' while keeping that signal; authenticated requests (e.g. the
-// settings form) get the real values. The Pi-hole URL is masked too, since it
-// is usually a LAN address guests have no use for.
+// Never expose the weather API key or Pi-hole secrets to unauthenticated
+// clients. The public homescreen only needs to know whether weather is
+// configured (a truthy value) to render the widget, so mask the real key to
+// 'true' while keeping that signal; authenticated requests (e.g. the settings
+// form) get the real values. For Pi-hole, guests get only each entry's id and
+// name (addresses are usually LAN hosts guests have no use for) and no secrets.
 // Returns a shallow copy — never mutates the cached config. Pure + testable.
 const maskConfigForViewer = (config, isAuthenticated) => {
   if (isAuthenticated) return config;
   return {
     ...config,
     WEATHER_API_KEY: config.WEATHER_API_KEY ? 'true' : '',
-    PIHOLE_PASSWORD: config.PIHOLE_PASSWORD ? 'true' : '',
-    piholeUrl: config.piholeUrl ? 'true' : '',
+    piholes: Array.isArray(config.piholes)
+      ? config.piholes.map((p) => ({ id: p && p.id, name: p && p.name }))
+      : [],
+    PIHOLE_SECRETS: {},
   };
 };
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { Icon as MDIcon } from '@mdi/react';
 import { mdiShieldCheck, mdiShieldOff } from '@mdi/js';
 
@@ -7,7 +7,7 @@ import { useSelector } from 'react-redux';
 import { State } from '../../../store/reducers';
 
 // Typescript
-import { ApiResponse, PiholeStats } from '../../../interfaces';
+import { ApiResponse, PiholeResult } from '../../../interfaces';
 
 // Utils
 import { http } from '../../../utility/http';
@@ -16,8 +16,9 @@ import { applyAuth } from '../../../utility';
 // CSS
 import classes from './PiholeWidget.module.css';
 
-// The server caches Pi-hole's answer for 30 seconds, so polling every minute
-// costs Pi-hole at most one call per minute however many tabs are open.
+// The server caches each Pi-hole's answer for 30 seconds, so polling every
+// minute costs each Pi-hole at most one call per minute however many tabs are
+// open.
 const REFRESH_MS = 60 * 1000;
 
 const compact = new Intl.NumberFormat(undefined, {
@@ -26,37 +27,48 @@ const compact = new Intl.NumberFormat(undefined, {
 });
 const whole = new Intl.NumberFormat();
 
+const blockingLabel = (blocking: string): string =>
+  blocking === 'enabled'
+    ? 'Blocking on'
+    : blocking === 'disabled'
+      ? 'Blocking off'
+      : 'Blocking status unknown';
+
+// One row per configured Pi-hole, under a shared header of column labels.
 export const PiholeWidget = (): JSX.Element | null => {
   const { loading: configLoading, config } = useSelector(
     (state: State) => state.config
   );
-  // For guests the server sends 'true' instead of the real URL.
-  const enabled = !configLoading && Boolean(config.piholeUrl);
+  const enabled =
+    !configLoading && Array.isArray(config.piholes) && config.piholes.length > 0;
+  // Refetch when the list of Pi-holes changes (added, removed, renamed).
+  const listKey = enabled
+    ? config.piholes.map((p) => `${p.id}:${p.name}`).join('|')
+    : '';
 
-  const [stats, setStats] = useState<PiholeStats | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [results, setResults] = useState<PiholeResult[]>([]);
 
   // Fetch now and every minute while the tab is visible. A hidden tab stops
   // polling and refreshes as soon as it is shown again.
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) {
+      setResults([]);
+      return;
+    }
 
     let cancelled = false;
     let timer: number | null = null;
 
     const load = () => {
       http
-        .get<ApiResponse<PiholeStats | null>>('/api/pihole', {
+        .get<ApiResponse<PiholeResult[]>>('/api/pihole', {
           headers: applyAuth(),
         })
         .then((res) => {
-          if (cancelled) return;
-          setStats(res.data.data);
-          setError(null);
+          if (!cancelled) setResults(res.data.data || []);
         })
-        .catch((err) => {
-          if (cancelled) return;
-          setError(err.response?.data?.error || 'Pi-hole is unreachable');
+        .catch(() => {
+          // Flame itself is unreachable: keep the last results on screen.
         });
     };
 
@@ -84,62 +96,59 @@ export const PiholeWidget = (): JSX.Element | null => {
       stop();
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [enabled]);
+  }, [enabled, listKey]);
 
-  if (!enabled || (!stats && !error)) return null;
-
-  if (error || !stats) {
-    return (
-      <div className={classes.PiholeWidget} title={error || undefined}>
-        <MDIcon
-          className={classes.PiholeIcon}
-          path={mdiShieldOff}
-          color="var(--color-primary)"
-        />
-        <div className={classes.PiholeError}>
-          <span>Pi-hole</span>
-          <span>unreachable</span>
-        </div>
-      </div>
-    );
-  }
-
-  const blockingOn = stats.blocking === 'enabled';
-  const blockingLabel = blockingOn
-    ? 'Blocking on'
-    : stats.blocking === 'disabled'
-      ? 'Blocking off'
-      : 'Blocking status unknown';
+  if (!enabled || results.length === 0) return null;
 
   return (
-    <div
-      className={classes.PiholeWidget}
-      title={`Pi-hole: ${blockingLabel}. ${whole.format(
-        stats.domainsBlocked
-      )} domains on the blocklist.`}
-    >
-      <MDIcon
-        className={`${classes.PiholeIcon} ${blockingOn ? '' : classes.Off}`}
-        path={blockingOn ? mdiShieldCheck : mdiShieldOff}
-        color="var(--color-primary)"
-        title={blockingLabel}
-      />
-      <div className={classes.PiholeStats}>
-        <div className={classes.Stat}>
-          <span className={classes.Label}>Queries</span>
-          <span>{whole.format(stats.queries)}</span>
-        </div>
-        <div className={classes.Stat}>
-          <span className={classes.Label}>Blocked</span>
-          <span>
-            {whole.format(stats.blocked)} ({stats.percentBlocked.toFixed(1)}%)
-          </span>
-        </div>
-        <div className={classes.Stat}>
-          <span className={classes.Label}>Blocklist</span>
-          <span>{compact.format(stats.domainsBlocked)}</span>
-        </div>
-      </div>
+    <div className={classes.PiholeWidget}>
+      <span />
+      <span />
+      <span className={classes.Label}>Queries</span>
+      <span className={classes.Label}>Blocked</span>
+      <span className={classes.Label}>Blocklist</span>
+
+      {results.map((r) => {
+        if (!r.ok) {
+          return (
+            <Fragment key={r.id}>
+              <MDIcon
+                className={`${classes.PiholeIcon} ${classes.Off}`}
+                path={mdiShieldOff}
+                color="var(--color-primary)"
+                title={r.error}
+              />
+              <span className={classes.Name}>{r.name}</span>
+              <span className={classes.Error} title={r.error}>
+                unreachable
+              </span>
+            </Fragment>
+          );
+        }
+
+        const on = r.blocking === 'enabled';
+        return (
+          <Fragment key={r.id}>
+            <MDIcon
+              className={`${classes.PiholeIcon} ${on ? '' : classes.Off}`}
+              path={on ? mdiShieldCheck : mdiShieldOff}
+              color="var(--color-primary)"
+              title={`${r.name}: ${blockingLabel(r.blocking)}`}
+            />
+            <span className={classes.Name}>{r.name}</span>
+            <span className={classes.Value}>{whole.format(r.queries)}</span>
+            <span className={classes.Value}>
+              {whole.format(r.blocked)} ({r.percentBlocked.toFixed(1)}%)
+            </span>
+            <span
+              className={classes.Value}
+              title={`${whole.format(r.domainsBlocked)} domains`}
+            >
+              {compact.format(r.domainsBlocked)}
+            </span>
+          </Fragment>
+        );
+      })}
     </div>
   );
 };

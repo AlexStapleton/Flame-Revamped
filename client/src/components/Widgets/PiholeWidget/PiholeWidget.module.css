@@ -1,37 +1,21 @@
-/* Hidden on narrow screens, like the weather widget. */
+/* Hidden on narrow screens, like the weather widget. One row per Pi-hole:
+   icon | name | queries | blocked | blocklist, under one row of labels. */
 .PiholeWidget {
   display: none;
+  grid-template-columns: auto auto auto auto auto;
   align-items: center;
+  column-gap: 14px;
+  row-gap: 4px;
   color: var(--color-primary);
 }
 
 .PiholeIcon {
-  width: 36px;
-  height: 36px;
-  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
 }
 
 .PiholeIcon.Off {
   opacity: 0.5;
-}
-
-.PiholeStats {
-  display: flex;
-  margin-left: 10px;
-}
-
-.Stat {
-  display: flex;
-  flex-direction: column;
-  font-size: 16px;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.Stat + .Stat {
-  margin-left: 14px;
-  padding-left: 14px;
-  border-left: 1px solid var(--color-primary);
 }
 
 .Label {
@@ -39,19 +23,32 @@
   font-weight: 400;
   text-transform: uppercase;
   opacity: 0.8;
-  padding-bottom: 3px;
 }
 
-.PiholeError {
-  display: flex;
-  flex-direction: column;
-  margin-left: 10px;
+.Name {
+  font-size: 14px;
+  font-weight: 400;
+  opacity: 0.8;
+  max-width: 10em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.Value {
+  font-size: 16px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.Error {
+  grid-column: span 3;
   font-size: 14px;
   opacity: 0.8;
 }
 
 @media (min-width: 900px) {
   .PiholeWidget {
-    display: flex;
+    display: grid;
   }
 }

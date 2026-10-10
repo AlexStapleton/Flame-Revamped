@@ -42,7 +42,6 @@ export const configTemplate: Config = {
   dashboardWidth: 75,
   appsColumns: 4,
   bookmarksColumns: 4,
-  piholeUrl: '',
-  PIHOLE_PASSWORD: '',
-  piholeSkipTlsVerify: false,
+  piholes: [],
+  PIHOLE_SECRETS: {},
 };

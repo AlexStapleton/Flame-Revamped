@@ -1,10 +1,10 @@
 ### Unreleased
 
 **Changes**
-- New Pi-hole widget in the header. It shows today's queries, blocked queries and percent blocked, the blocklist size, and whether blocking is on. Set it up under Settings > Pi-hole with the Pi-hole address and an app password. It needs Pi-hole v6.
-- Flame's server makes the Pi-hole calls through `GET /api/pihole` and keeps one Pi-hole session open, re-logging in only when Pi-hole expires it. Results are cached for 30 seconds, so many open tabs still mean one call to Pi-hole. `GET /api/pihole/update` (admin only) skips the cache and is used by the settings page to test the connection.
-- The Pi-hole app password is stored in `config.json` like the weather key. It is masked for visitors who aren't logged in, left out of backup exports, and kept when a backup is restored. The Pi-hole address is masked for visitors too. Error details (which can name the Pi-hole host) are only shown to the admin.
-- An optional "Skip certificate check" setting allows an `https://` Pi-hole with its built-in self-signed certificate.
+- New Pi-hole widget in the header, with one row per Pi-hole: today's queries, blocked queries and percent blocked, the blocklist size, and whether blocking is on. Set it up under Settings > Pi-hole. It supports Pi-hole v5 and v6 (chosen per Pi-hole) and up to 10 Pi-holes.
+- Flame's server makes the Pi-hole calls through `GET /api/pihole`, which returns one entry per Pi-hole so a down Pi-hole doesn't hide the others. For v6 it keeps one session open per Pi-hole and logs in again only when Pi-hole expires it. v5 uses `api.php?summaryRaw` with the API token. Each result is cached for 30 seconds, so many open tabs still mean one call per Pi-hole. `GET /api/pihole/update` (admin only) skips the cache and is used by the settings page to test the connection.
+- New config keys: `piholes` (name, address, version and certificate option per Pi-hole) and `PIHOLE_SECRETS` (passwords and tokens by Pi-hole id). `PIHOLE_SECRETS` is handled like the weather key: hidden from visitors who aren't logged in, left out of backup exports, and kept when a backup is restored. Visitors only see each Pi-hole's name. Error details, which can name the Pi-hole host, are only shown to the admin.
+- An optional "Skip certificate check" setting per Pi-hole allows an `https://` address with a self-signed certificate.
 - The CSP is unchanged, since the browser only talks to Flame.
 
 ### v1.8.1 (2026-10-10)

@@ -1,4 +1,5 @@
 import { WeatherData } from '../types';
+import { PiholeInstance } from './Pihole';
 
 export interface Config {
   WEATHER_API_KEY: string;
@@ -47,9 +48,9 @@ export interface Config {
   // (>= 900px). Narrower breakpoints ramp down, capped at these values.
   appsColumns: number;
   bookmarksColumns: number;
-  // Pi-hole widget. For guests the server masks piholeUrl and
-  // PIHOLE_PASSWORD to 'true' / '' (configured or not).
-  piholeUrl: string;
-  PIHOLE_PASSWORD: string;
-  piholeSkipTlsVerify: boolean;
+  // Pi-hole widgets. For guests the server sends only each entry's id and
+  // name, and an empty PIHOLE_SECRETS.
+  piholes: PiholeInstance[];
+  // Pi-hole id -> v6 app password or v5 API token.
+  PIHOLE_SECRETS: Record<string, string>;
 }

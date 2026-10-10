@@ -1,4 +1,5 @@
 import { WeatherData } from '../types';
+import { PiholeInstance } from './Pihole';
 
 export interface WeatherForm {
   WEATHER_API_KEY: string;
@@ -9,9 +10,8 @@ export interface WeatherForm {
 }
 
 export interface PiholeForm {
-  piholeUrl: string;
-  PIHOLE_PASSWORD: string;
-  piholeSkipTlsVerify: boolean;
+  piholes: PiholeInstance[];
+  PIHOLE_SECRETS: Record<string, string>;
 }
 
 export interface GeneralForm {

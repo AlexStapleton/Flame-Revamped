@@ -1,0 +1,4 @@
+/* Space between Pi-hole entries. */
+.Entry {
+  margin-bottom: 30px;
+}

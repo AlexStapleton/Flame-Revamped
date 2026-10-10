@@ -57,7 +57,6 @@ export const themeSettingsTemplate: ThemeSettingsForm = {
 };
 
 export const piholeSettingsTemplate: PiholeForm = {
-  piholeUrl: '',
-  PIHOLE_PASSWORD: '',
-  piholeSkipTlsVerify: false,
+  piholes: [],
+  PIHOLE_SECRETS: {},
 };
