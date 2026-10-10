@@ -1,3 +1,5 @@
+const { isDangerousUrl } = require('../urlSafety');
+
 const SCHEMA_VERSION = 1;
 
 // Validate a parsed backup envelope. Pure — no I/O. Returns { ok: true } or
@@ -21,6 +23,20 @@ const validateBackup = (obj) => {
   for (const key of ['apps', 'categories', 'bookmarks']) {
     if (obj.data[key] !== undefined && !Array.isArray(obj.data[key])) {
       return { ok: false, error: `Backup field "${key}" must be a list.` };
+    }
+  }
+  for (const key of ['apps', 'bookmarks']) {
+    for (const item of obj.data[key] || []) {
+      if (
+        item &&
+        (isDangerousUrl(item.url) ||
+          (key === 'apps' && isDangerousUrl(item.statusCheckUrl)))
+      ) {
+        return {
+          ok: false,
+          error: `Backup contains an item in "${key}" with an unsafe URL scheme.`,
+        };
+      }
     }
   }
   return { ok: true };

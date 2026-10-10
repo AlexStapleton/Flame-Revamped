@@ -2,6 +2,7 @@ const App = require('../../../models/App');
 const axios = require('axios');
 const Logger = require('../../../utils/Logger');
 const logger = new Logger();
+const { isDangerousUrl } = require('../../../utils/urlSafety');
 const loadConfig = require('../../../utils/loadConfig');
 
 const useDocker = async () => {
@@ -97,9 +98,18 @@ const useDocker = async () => {
             icons = labels['flame.icon'].split(';');
           }
 
+          const appUrl = urls[i] || urls[0];
+          if (isDangerousUrl(appUrl)) {
+            logger.log(
+              `Skipping Docker app "${names[i] || names[0]}": unsafe URL scheme`,
+              'WARN'
+            );
+            continue;
+          }
+
           dockerApps.push({
             name: names[i] || names[0],
-            url: urls[i] || urls[0],
+            url: appUrl,
             icon: icons[i] || 'docker',
           });
         }

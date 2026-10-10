@@ -1,8 +1,15 @@
+import { isDangerousUrl } from './urlSafety';
+
 const hasProtocol = (url: string): boolean => /^\w+:\/\//.test(url);
 const isSteamUrl = (url: string): boolean => /^steam:\/\//.test(url);
 const isWebUrl = (url: string): boolean => /^https?:\/\//.test(url);
 
 export const urlParser = (url: string): string[] => {
+  if (isDangerousUrl(url)) {
+    // Never hand a script-capable URL to callers; show it but make it inert
+    return [url, '#'];
+  }
+
   if (!hasProtocol(url)) {
     // No protocol -> apply http:// prefix
     url = `http://${url}`;
