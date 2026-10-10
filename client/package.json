@@ -20,12 +20,13 @@
     "redux": "^5.0.1",
     "redux-thunk": "^3.1.0",
     "skycons-ts": "^1.0.0",
-    "typescript": "^5.9.3"
+    "typescript": "^7.0.2"
   },
   "scripts": {
     "start": "vite --host",
     "build": "vite build",
-    "serve": "vite preview"
+    "serve": "vite preview",
+    "typecheck": "tsc --noEmit -p ."
   },
   "eslintConfig": {
     "extends": [

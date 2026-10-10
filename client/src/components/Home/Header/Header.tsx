@@ -24,7 +24,7 @@ export const Header = (): JSX.Element => {
   const [greeting, setGreeting] = useState<string>(greeter());
 
   useEffect(() => {
-    let dateTimeInterval: NodeJS.Timeout;
+    let dateTimeInterval: ReturnType<typeof setInterval>;
 
     dateTimeInterval = setInterval(() => {
       setDateTime(getDateTime());
