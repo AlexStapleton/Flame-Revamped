@@ -31,7 +31,7 @@ api.use(
 // on first load since the client bundle and @mdi icon data are sizable.
 api.use(compression());
 
-// Access logging — enables fail2ban and the /health log scan. Resolves to
+// Access logging — enables fail2ban. Resolves to
 // /app/log/access.log inside the container. Health checks are skipped to avoid
 // flooding the log.
 const logDir = join(process.cwd(), 'log');
