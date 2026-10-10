@@ -107,6 +107,8 @@ const mapStats = (summary, blocking) => {
     domainsBlocked: num(gravity.domains_being_blocked),
     // "enabled" | "disabled" | "failed" | "unknown"
     blocking: typeof blocking?.blocking === 'string' ? blocking.blocking : 'unknown',
+    // Seconds until blocking switches back (v6 only), or null.
+    timer: Number.isFinite(blocking?.timer) ? blocking.timer : null,
   };
 };
 
@@ -117,6 +119,7 @@ const mapStatsV5 = (raw) => ({
   percentBlocked: num(raw.ads_percentage_today),
   domainsBlocked: num(raw.domains_being_blocked),
   blocking: raw.status === 'enabled' || raw.status === 'disabled' ? raw.status : 'unknown',
+  timer: null, // v5 doesn't report how long a pause has left
 });
 
 class PiholeError extends Error {}
@@ -173,21 +176,26 @@ const createPiholeClient = ({
     hasSession = true;
   };
 
-  const authedGet = async (s, path) => {
+  const authedRequest = async (s, path, { method = 'GET', body } = {}) => {
     const headers = sid ? { 'X-FTL-SID': sid } : {};
-    return request(`${s.baseUrl}${path}`, { headers, insecure: s.insecure });
+    return request(`${s.baseUrl}${path}`, {
+      method,
+      body,
+      headers,
+      insecure: s.insecure,
+    });
   };
 
-  // GET a v6 endpoint, logging in first if needed and once more if Pi-hole has
-  // expired the session.
-  const getWithSession = async (s, path) => {
+  // Call a v6 endpoint, logging in first if needed and once more if Pi-hole
+  // has expired the session.
+  const getWithSession = async (s, path, opts) => {
     if (!hasSession) await login(s);
-    let res = await authedGet(s, path);
+    let res = await authedRequest(s, path, opts);
     if (res.status === 401) {
       hasSession = false;
       sid = null;
       await login(s);
-      res = await authedGet(s, path);
+      res = await authedRequest(s, path, opts);
     }
     if (res.status !== 200 || !res.data) {
       throw new PiholeError(`Unexpected response from Pi-hole (HTTP ${res.status})`);
@@ -223,19 +231,65 @@ const createPiholeClient = ({
     return mapStatsV5(res.data);
   };
 
-  const fetchStats = async (s) => {
+  // Settings changed: drop the old session (logging it out) before use.
+  const useSettings = (s) => {
     if (!sessionSettings || keyOf(s) !== keyOf(sessionSettings)) {
       logout();
       sessionSettings = s;
       sid = null;
       hasSession = false;
     }
+  };
+
+  const wrapErrors = async (fn) => {
     try {
-      return await (s.version === 5 ? fetchV5(s) : fetchV6(s));
+      return await fn();
     } catch (err) {
       if (err instanceof PiholeError) throw err;
       throw new PiholeError(`Can't reach Pi-hole: ${err.message}`);
     }
+  };
+
+  const fetchStats = async (s) => {
+    useSettings(s);
+    return wrapErrors(() => (s.version === 5 ? fetchV5(s) : fetchV6(s)));
+  };
+
+  // Turn blocking on, or off for `timer` seconds (null = until turned back
+  // on). v6: POST /api/dns/blocking. v5: api.php?enable / ?disable=N.
+  const toggleV6 = async (s, enabled, timer) => {
+    await getWithSession(s, '/api/dns/blocking', {
+      method: 'POST',
+      body: { blocking: enabled, timer: enabled ? null : timer },
+    });
+  };
+
+  const toggleV5 = async (s, enabled, timer) => {
+    const auth = s.password ? `&auth=${encodeURIComponent(s.password)}` : '';
+    const action = enabled ? 'enable' : `disable=${timer || 0}`;
+    const res = await request(`${s.baseUrl}/admin/api.php?${action}${auth}`, {
+      insecure: s.insecure,
+    });
+    if (res.status !== 200) {
+      throw new PiholeError(`Unexpected response from Pi-hole (HTTP ${res.status})`);
+    }
+    if (Array.isArray(res.data) || !res.data || !res.data.status) {
+      throw new PiholeError(
+        s.password ? 'Pi-hole rejected the API token' : 'Pi-hole needs an API token'
+      );
+    }
+  };
+
+  // Resolves to the stats as they are after the change.
+  const setBlocking = async (s, { enabled, timer = null }) => {
+    useSettings(s);
+    await wrapErrors(() =>
+      s.version === 5 ? toggleV5(s, enabled, timer) : toggleV6(s, enabled, timer)
+    );
+    // Anything cached or in flight predates the change.
+    cache = null;
+    inFlight = null;
+    return getStats(s, { fresh: true });
   };
 
   // Resolves to the stats, throws PiholeError on failure. `fresh` skips the
@@ -274,7 +328,7 @@ const createPiholeClient = ({
     cache = null;
   };
 
-  return { getStats, dispose };
+  return { getStats, setBlocking, dispose };
 };
 
 const MAX_PIHOLES = 10;
@@ -352,7 +406,22 @@ const createPiholeManager = ({
     );
   };
 
-  return { getAll };
+  // Turn blocking on or off on one Pi-hole. Resolves to that Pi-hole's entry
+  // (same shape as getAll), or null when the id isn't configured.
+  const setBlocking = async (id, { enabled, timer }) => {
+    const instance = readInstances(await getConfig()).find((i) => i.id === id);
+    if (!instance) return null;
+    if (!clients.has(id)) clients.set(id, clientFactory());
+    try {
+      const stats = await clients.get(id).setBlocking(instance.settings, { enabled, timer });
+      return { id, name: instance.name, ok: true, ...stats };
+    } catch (err) {
+      if (!(err instanceof PiholeError)) throw err;
+      return { id, name: instance.name, ok: false, error: err.message };
+    }
+  };
+
+  return { getAll, setBlocking };
 };
 
 module.exports = {

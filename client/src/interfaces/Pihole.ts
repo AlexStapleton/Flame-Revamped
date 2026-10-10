@@ -13,6 +13,8 @@ export interface PiholeStats {
   percentBlocked: number;
   domainsBlocked: number;
   blocking: 'enabled' | 'disabled' | 'failed' | 'unknown';
+  // Seconds until blocking switches back (v6 only), or null.
+  timer: number | null;
 }
 
 // One entry of GET /api/pihole, per configured Pi-hole, in settings order.

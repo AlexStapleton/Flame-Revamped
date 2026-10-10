@@ -53,4 +53,7 @@ export interface Config {
   piholes: PiholeInstance[];
   // Pi-hole id -> v6 app password or v5 API token.
   PIHOLE_SECRETS: Record<string, string>;
+  // How long clicking the shield pauses blocking, in seconds. 0 = until it
+  // is clicked again.
+  piholeDisableSeconds: number;
 }

@@ -59,4 +59,5 @@ export const themeSettingsTemplate: ThemeSettingsForm = {
 export const piholeSettingsTemplate: PiholeForm = {
   piholes: [],
   PIHOLE_SECRETS: {},
+  piholeDisableSeconds: 300,
 };

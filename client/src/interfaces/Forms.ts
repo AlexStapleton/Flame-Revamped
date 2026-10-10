@@ -12,6 +12,7 @@ export interface WeatherForm {
 export interface PiholeForm {
   piholes: PiholeInstance[];
   PIHOLE_SECRETS: Record<string, string>;
+  piholeDisableSeconds: number;
 }
 
 export interface GeneralForm {

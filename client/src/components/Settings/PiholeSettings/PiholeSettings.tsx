@@ -56,6 +56,7 @@ export const PiholeSettings = (): JSX.Element => {
     setFormData({
       piholes: (config.piholes || []).map((p) => ({ ...p })),
       PIHOLE_SECRETS: { ...(config.PIHOLE_SECRETS || {}) },
+      piholeDisableSeconds: config.piholeDisableSeconds ?? 300,
     });
   }, [loading]);
 
@@ -82,6 +83,7 @@ export const PiholeSettings = (): JSX.Element => {
       const secrets = { ...prev.PIHOLE_SECRETS };
       delete secrets[id];
       return {
+        ...prev,
         piholes: prev.piholes.filter((p) => p.id !== id),
         PIHOLE_SECRETS: secrets,
       };
@@ -115,7 +117,11 @@ export const PiholeSettings = (): JSX.Element => {
     }
 
     // Save settings
-    await updateConfig({ piholes, PIHOLE_SECRETS });
+    await updateConfig({
+      piholes,
+      PIHOLE_SECRETS,
+      piholeDisableSeconds: formData.piholeDisableSeconds,
+    });
 
     if (piholes.length === 0) return;
 
@@ -261,6 +267,37 @@ export const PiholeSettings = (): JSX.Element => {
           </div>
         );
       })}
+
+      {formData.piholes.length > 0 && (
+        <>
+          <SettingsHeadline text="Pause blocking" />
+          <InputGroup>
+            <label htmlFor="piholeDisableSeconds">
+              Clicking the shield pauses blocking for
+            </label>
+            <select
+              id="piholeDisableSeconds"
+              value={formData.piholeDisableSeconds}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  piholeDisableSeconds: Number(e.target.value),
+                }))
+              }
+            >
+              <option value={30}>30 seconds</option>
+              <option value={300}>5 minutes</option>
+              <option value={1800}>30 minutes</option>
+              <option value={3600}>1 hour</option>
+              <option value={0}>Until clicked again</option>
+            </select>
+            <span>
+              Only when you're logged in. Clicking a dimmed shield turns
+              blocking back on.
+            </span>
+          </InputGroup>
+        </>
+      )}
 
       {formData.piholes.length < MAX_PIHOLES && (
         <Button type="button" click={addPihole}>

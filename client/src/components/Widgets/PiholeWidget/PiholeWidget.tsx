@@ -3,7 +3,9 @@ import { Icon as MDIcon } from '@mdi/react';
 import { mdiShieldCheck, mdiShieldOff } from '@mdi/js';
 
 // Redux
-import { useSelector } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
+import { bindActionCreators } from 'redux';
+import { actionCreators } from '../../../store';
 import { State } from '../../../store/reducers';
 
 // Typescript
@@ -27,18 +29,35 @@ const compact = new Intl.NumberFormat(undefined, {
 });
 const whole = new Intl.NumberFormat();
 
-const blockingLabel = (blocking: string): string =>
-  blocking === 'enabled'
-    ? 'Blocking on'
-    : blocking === 'disabled'
-      ? 'Blocking off'
-      : 'Blocking status unknown';
+const blockingLabel = (blocking: string, timer: number | null): string => {
+  if (blocking === 'enabled') return 'Blocking on';
+  if (blocking !== 'disabled') return 'Blocking status unknown';
+  if (timer && timer > 0) {
+    const mins = Math.ceil(timer / 60);
+    return `Blocking off, back on in ${timer < 60 ? `${Math.ceil(timer)} s` : `${mins} min`}`;
+  }
+  return 'Blocking off';
+};
+
+// "for 5 minutes" / "until clicked again", from the piholeDisableSeconds setting.
+const pauseLabel = (seconds: number): string => {
+  if (!seconds || seconds <= 0) return 'until you click again';
+  if (seconds < 60) return `for ${seconds} seconds`;
+  if (seconds < 3600) return `for ${Math.round(seconds / 60)} minutes`;
+  const hours = Math.round(seconds / 3600);
+  return `for ${hours} hour${hours === 1 ? '' : 's'}`;
+};
 
 // One row per configured Pi-hole, under a shared header of column labels.
 export const PiholeWidget = (): JSX.Element | null => {
   const { loading: configLoading, config } = useSelector(
     (state: State) => state.config
   );
+  const isAuthenticated = useSelector(
+    (state: State) => state.auth.isAuthenticated
+  );
+  const dispatch = useDispatch();
+  const { createNotification } = bindActionCreators(actionCreators, dispatch);
   const enabled =
     !configLoading && Array.isArray(config.piholes) && config.piholes.length > 0;
   // Refetch when the list of Pi-holes changes (added, removed, renamed).
@@ -47,6 +66,31 @@ export const PiholeWidget = (): JSX.Element | null => {
     : '';
 
   const [results, setResults] = useState<PiholeResult[]>([]);
+  // Ids of Pi-holes with a blocking change in flight.
+  const [pending, setPending] = useState<string[]>([]);
+
+  // Admin only: the server rejects this for guests, and guests get no button.
+  const toggleBlocking = (id: string, enable: boolean) => {
+    if (pending.includes(id)) return;
+    setPending((p) => [...p, id]);
+    http
+      .post<ApiResponse<PiholeResult>>(
+        `/api/pihole/${encodeURIComponent(id)}/blocking`,
+        { enabled: enable },
+        { headers: applyAuth() }
+      )
+      .then((res) => {
+        const updated = res.data.data;
+        setResults((prev) => prev.map((r) => (r.id === id ? updated : r)));
+      })
+      .catch((err) => {
+        createNotification({
+          title: 'Error',
+          message: err.response?.data?.error || 'Could not change Pi-hole blocking',
+        });
+      })
+      .finally(() => setPending((p) => p.filter((x) => x !== id)));
+  };
 
   // Fetch now and every minute while the tab is visible. A hidden tab stops
   // polling and refreshes as soon as it is shown again.
@@ -127,14 +171,39 @@ export const PiholeWidget = (): JSX.Element | null => {
         }
 
         const on = r.blocking === 'enabled';
+        const status = `${r.name}: ${blockingLabel(r.blocking, r.timer)}`;
+        const icon = (
+          <MDIcon
+            className={`${classes.PiholeIcon} ${on ? '' : classes.Off}`}
+            path={on ? mdiShieldCheck : mdiShieldOff}
+            color="var(--color-primary)"
+          />
+        );
+        const busy = pending.includes(r.id);
         return (
           <Fragment key={r.id}>
-            <MDIcon
-              className={`${classes.PiholeIcon} ${on ? '' : classes.Off}`}
-              path={on ? mdiShieldCheck : mdiShieldOff}
-              color="var(--color-primary)"
-              title={`${r.name}: ${blockingLabel(r.blocking)}`}
-            />
+            {isAuthenticated ? (
+              <button
+                type="button"
+                className={`${classes.ShieldButton} ${busy ? classes.Busy : ''}`}
+                disabled={busy}
+                onClick={() => toggleBlocking(r.id, !on)}
+                title={`${status}. Click to ${
+                  on
+                    ? `pause blocking ${pauseLabel(config.piholeDisableSeconds)}`
+                    : 'turn blocking back on'
+                }.`}
+                aria-label={
+                  on ? `Pause blocking on ${r.name}` : `Turn blocking back on for ${r.name}`
+                }
+              >
+                {icon}
+              </button>
+            ) : (
+              <span className={classes.Shield} title={status}>
+                {icon}
+              </span>
+            )}
             <span className={classes.Name}>{r.name}</span>
             <span className={classes.Value}>{whole.format(r.queries)}</span>
             <span className={classes.Value}>

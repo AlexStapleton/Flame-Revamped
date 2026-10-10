@@ -44,4 +44,5 @@ export const configTemplate: Config = {
   bookmarksColumns: 4,
   piholes: [],
   PIHOLE_SECRETS: {},
+  piholeDisableSeconds: 300,
 };

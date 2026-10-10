@@ -12,7 +12,12 @@ const {
   PiholeError,
   MAX_PIHOLES,
 } = require('../utils/pihole');
-const { buildHandler, GENERIC_ERROR } = require('../controllers/pihole/getPihole');
+const {
+  buildHandler,
+  buildBlockingHandler,
+  disableTimer,
+  GENERIC_ERROR,
+} = require('../controllers/pihole/getPihole');
 const { maskConfigForViewer } = require('../controllers/config/getConfig');
 const { SECRET_KEYS } = require('../utils/backup/secrets');
 
@@ -23,7 +28,14 @@ const SUMMARY = {
 
 // Fake Pi-hole v6: tracks logins and expires sessions on demand.
 const fakePihole = ({ password = 'app-pw', noPassword = false } = {}) => {
-  const state = { logins: 0, logouts: 0, calls: [], validSids: new Set() };
+  const state = {
+    logins: 0,
+    logouts: 0,
+    calls: [],
+    validSids: new Set(),
+    blocking: 'enabled',
+    timer: null,
+  };
   const request = async (url, opts = {}) => {
     const { pathname } = new URL(url);
     const method = opts.method || 'GET';
@@ -48,8 +60,13 @@ const fakePihole = ({ password = 'app-pw', noPassword = false } = {}) => {
       return { status: 401, data: { error: { key: 'unauthorized' } } };
     }
     if (pathname === '/api/stats/summary') return { status: 200, data: SUMMARY };
+    if (pathname === '/api/dns/blocking' && method === 'POST') {
+      state.blocking = opts.body.blocking ? 'enabled' : 'disabled';
+      state.timer = opts.body.timer;
+      return { status: 200, data: { blocking: state.blocking, timer: state.timer } };
+    }
     if (pathname === '/api/dns/blocking') {
-      return { status: 200, data: { blocking: 'enabled', timer: null } };
+      return { status: 200, data: { blocking: state.blocking, timer: state.timer } };
     }
     return { status: 404, data: null };
   };
@@ -78,6 +95,7 @@ test('mapStats maps the v6 fields and tolerates missing ones', () => {
     percentBlocked: 9.996,
     domainsBlocked: 150000,
     blocking: 'disabled',
+    timer: null,
   });
   assert.deepStrictEqual(mapStats(null, null), {
     queries: 0,
@@ -85,6 +103,7 @@ test('mapStats maps the v6 fields and tolerates missing ones', () => {
     percentBlocked: 0,
     domainsBlocked: 0,
     blocking: 'unknown',
+    timer: null,
   });
 });
 
@@ -186,13 +205,18 @@ const V5_RAW = {
 };
 const fakeV5 = (token = 'tok en') => {
   const urls = [];
+  let status = V5_RAW.status;
   const request = async (url) => {
     urls.push(url);
     const u = new URL(url);
-    if (u.pathname !== '/admin/api.php' || !u.searchParams.has('summaryRaw')) {
-      return { status: 404, data: null };
+    if (u.pathname !== '/admin/api.php') return { status: 404, data: null };
+    if (u.searchParams.get('auth') !== token) return { status: 200, data: [] };
+    if (u.searchParams.has('enable')) status = 'enabled';
+    if (u.searchParams.has('disable')) status = 'disabled';
+    if (u.searchParams.has('summaryRaw')) {
+      return { status: 200, data: { ...V5_RAW, status } };
     }
-    return { status: 200, data: u.searchParams.get('auth') === token ? V5_RAW : [] };
+    return { status: 200, data: { status } };
   };
   return { urls, request };
 };
@@ -205,6 +229,7 @@ test('mapStatsV5 maps the v5 fields', () => {
     percentBlocked: 15,
     domainsBlocked: 120000,
     blocking: 'disabled',
+    timer: null,
   });
   assert.strictEqual(mapStatsV5({ status: 'weird' }).blocking, 'unknown');
 });
@@ -297,6 +322,99 @@ test('manager returns one entry per Pi-hole; one failing does not hide the other
   const after = await manager.getAll();
   assert.deepStrictEqual(after.map((r) => r.id), ['b']);
   assert.strictEqual(v6.state.logouts, 1);
+});
+
+// Blocking toggle.
+test('v6 setBlocking posts the change and returns fresh stats', async () => {
+  const fake = fakePihole();
+  const client = createPiholeClient({ request: fake.request, now: () => 0 });
+  assert.strictEqual((await client.getStats(V6)).blocking, 'enabled');
+  const off = await client.setBlocking(V6, { enabled: false, timer: 300 });
+  assert.strictEqual(off.blocking, 'disabled');
+  assert.strictEqual(off.timer, 300);
+  assert.strictEqual(fake.state.timer, 300);
+  // The cache was refreshed, so a normal read sees the change.
+  assert.strictEqual((await client.getStats(V6)).blocking, 'disabled');
+  const on = await client.setBlocking(V6, { enabled: true, timer: 300 });
+  assert.strictEqual(on.blocking, 'enabled');
+  assert.strictEqual(fake.state.timer, null); // enabling never sends a timer
+  assert.strictEqual(fake.state.logins, 1);
+});
+
+test('v5 setBlocking uses enable / disable=N with the token', async () => {
+  const fake = fakeV5();
+  const client = createPiholeClient({ request: fake.request });
+  const on = await client.setBlocking(V5, { enabled: true });
+  assert.strictEqual(on.blocking, 'enabled');
+  assert.ok(fake.urls.some((u) => /\?enable&auth=tok%20en$/.test(u)));
+  const off = await client.setBlocking(V5, { enabled: false, timer: 30 });
+  assert.strictEqual(off.blocking, 'disabled');
+  assert.ok(fake.urls.some((u) => /\?disable=30&auth=/.test(u)));
+  await client.setBlocking(V5, { enabled: false, timer: null });
+  assert.ok(fake.urls.some((u) => /\?disable=0&auth=/.test(u)));
+});
+
+test('v5 setBlocking with a wrong token fails', async () => {
+  const client = createPiholeClient({ request: fakeV5().request, onError: () => {} });
+  await assert.rejects(
+    client.setBlocking({ ...V5, password: 'nope' }, { enabled: false, timer: 30 }),
+    /rejected the API token/
+  );
+});
+
+test('manager setBlocking returns null for an unknown id', async () => {
+  const manager = createPiholeManager({ getConfig: async () => ({ piholes: [] }) });
+  assert.strictEqual(await manager.setBlocking('nope', { enabled: true }), null);
+});
+
+test('disableTimer reads the setting (0 = until turned back on, capped at a day)', () => {
+  assert.strictEqual(disableTimer(300), 300);
+  assert.strictEqual(disableTimer('30'), 30);
+  assert.strictEqual(disableTimer(0), null);
+  assert.strictEqual(disableTimer(undefined), null);
+  assert.strictEqual(disableTimer(-5), null);
+  assert.strictEqual(disableTimer(10 ** 9), 86400);
+});
+
+const runBlocking = async (handler, body, id = 'a') => {
+  const res = {
+    statusCode: null,
+    body: null,
+    status(c) {
+      this.statusCode = c;
+      return this;
+    },
+    json(b) {
+      this.body = b;
+      return this;
+    },
+  };
+  let nextErr = null;
+  await handler({ params: { id }, body }, res, (err) => (nextErr = err));
+  return { res, nextErr };
+};
+
+test('blocking handler validates input and passes the configured timer', async () => {
+  const calls = [];
+  const manager = {
+    setBlocking: async (id, opts) => {
+      calls.push([id, opts]);
+      return id === 'a' ? { id, name: 'Main', ok: true, blocking: 'disabled' } : null;
+    },
+  };
+  const handler = buildBlockingHandler({
+    manager,
+    getConfig: async () => ({ piholeDisableSeconds: 300 }),
+  });
+  const bad = await runBlocking(handler, { enabled: 'yes' });
+  assert.strictEqual(bad.nextErr.statusCode, 400);
+  const off = await runBlocking(handler, { enabled: false });
+  assert.strictEqual(off.res.statusCode, 200);
+  assert.deepStrictEqual(calls.at(-1), ['a', { enabled: false, timer: 300 }]);
+  await runBlocking(handler, { enabled: true });
+  assert.deepStrictEqual(calls.at(-1), ['a', { enabled: true, timer: null }]);
+  const missing = await runBlocking(handler, { enabled: true }, 'zzz');
+  assert.strictEqual(missing.nextErr.statusCode, 404);
 });
 
 // Controller: guests get a generic error, the admin gets the real reason.

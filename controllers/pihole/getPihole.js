@@ -1,4 +1,6 @@
 const asyncWrapper = require('../../middleware/asyncWrapper');
+const ErrorResponse = require('../../utils/ErrorResponse');
+const loadConfig = require('../../utils/loadConfig');
 const { piholes } = require('../../utils/pihole');
 
 // Guests only learn that a Pi-hole is unreachable. The detailed reason can name
@@ -29,4 +31,46 @@ const getPihole = buildHandler({ fresh: false });
 // @access    Private
 const updatePihole = buildHandler({ fresh: true });
 
-module.exports = { getPihole, updatePihole, buildHandler, GENERIC_ERROR };
+// Longest pause the widget can ask for (Pi-hole itself has no limit).
+const MAX_DISABLE_SECONDS = 24 * 60 * 60;
+
+// How long a click on the shield pauses blocking, from settings. 0 means
+// until it is turned back on (sent to Pi-hole as no timer). Pure.
+const disableTimer = (seconds) => {
+  const n = Math.floor(Number(seconds));
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.min(n, MAX_DISABLE_SECONDS);
+};
+
+const buildBlockingHandler = ({ manager = piholes, getConfig = loadConfig } = {}) =>
+  asyncWrapper(async (req, res, next) => {
+    const { enabled } = req.body || {};
+    if (typeof enabled !== 'boolean') {
+      return next(new ErrorResponse('"enabled" must be true or false', 400));
+    }
+    const { piholeDisableSeconds } = await getConfig();
+    const result = await manager.setBlocking(req.params.id, {
+      enabled,
+      timer: enabled ? null : disableTimer(piholeDisableSeconds),
+    });
+    if (!result) return next(new ErrorResponse('Pi-hole not found', 404));
+    if (!result.ok) {
+      return res.status(502).json({ success: false, error: result.error });
+    }
+    res.status(200).json({ success: true, data: result });
+  });
+
+// @desc      Turn blocking on, or off for the configured time
+// @route     POST /api/pihole/:id/blocking  { enabled: boolean }
+// @access    Private
+const setPiholeBlocking = buildBlockingHandler();
+
+module.exports = {
+  getPihole,
+  updatePihole,
+  setPiholeBlocking,
+  buildHandler,
+  buildBlockingHandler,
+  disableTimer,
+  GENERIC_ERROR,
+};
