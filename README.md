@@ -91,12 +91,17 @@ services:
     environment:
       - PASSWORD=changeme
       # - WEATHER_CACHE_HOURS=6  #  optional to cut down calls to weather api
+      # - CSP=off  #  optional: disable the Content-Security-Policy if custom CSS/setups break
     healthcheck:
       test: ["CMD", "curl", "-fs", "http://localhost:5005/health"]
       interval: 60s
       timeout: 10s
       retries: 3
 ```
+
+##### Content-Security-Policy
+
+Flame sends a Content-Security-Policy that blocks injected scripts, frames and objects while still allowing icons and custom CSS from anywhere. If a custom setup breaks under it, set `CSP=off` to disable it (a warning is logged at startup).
 
 ##### Docker Secrets
 
