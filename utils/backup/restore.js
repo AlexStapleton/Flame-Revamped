@@ -12,7 +12,17 @@ const { buildBackup } = require('./serialize');
 const { pickKnownKeys } = require('../../controllers/config/updateConfig');
 
 const CSS_PATH = path.join(__dirname, '../../public/flame.css');
+// Startup copies data/flame.css -> public/flame.css (see utils/init/initialFiles.json),
+// so imported CSS must also land here or it is reverted on the next restart.
+const DATA_CSS_PATH = 'data/flame.css';
 const BACKUP_DIR = 'data/backups';
+
+// Persist custom CSS to both the served copy and the data/ copy that survives restarts.
+const writeCustomCss = (css) => {
+  const content = typeof css === 'string' ? css : '';
+  new File(CSS_PATH).write(content, false);
+  new File(DATA_CSS_PATH).write(content, false);
+};
 
 // Snapshot current state to data/backups/pre-import-<timestamp>.json so a bad
 // import is recoverable. Returns the file path written.
@@ -71,10 +81,7 @@ const applyBackup = async (envelope) => {
   try {
     new File('data/themes.json').write({ themes: data.themes || [] }, true);
     new File('data/customQueries.json').write({ queries: data.queries || [] }, true);
-    new File(CSS_PATH).write(
-      typeof data.customCss === 'string' ? data.customCss : '',
-      false
-    );
+    writeCustomCss(data.customCss);
     await restoreConfig(data.config);
   } catch (err) {
     throw new ErrorResponse(
@@ -87,4 +94,4 @@ const applyBackup = async (envelope) => {
   return { safetyBackupPath };
 };
 
-module.exports = { applyBackup, writeSafetyBackup, restoreConfig };
+module.exports = { applyBackup, writeSafetyBackup, restoreConfig, writeCustomCss };

@@ -7,7 +7,7 @@ import { Notification } from '../UI';
 import { State } from '../../store/reducers';
 
 export const NotificationCenter = (): JSX.Element => {
-  const { notifications } = useSelector((state: State) => state.notification);
+  const notifications = useSelector((state: State) => state.notification.notifications);
 
   return (
     <div

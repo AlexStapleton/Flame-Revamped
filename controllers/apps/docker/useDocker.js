@@ -4,6 +4,8 @@ const Logger = require('../../../utils/Logger');
 const logger = new Logger();
 const { isDangerousUrl } = require('../../../utils/urlSafety');
 const loadConfig = require('../../../utils/loadConfig');
+const { computeSyncPlan } = require('../../../utils/syncDiff');
+const applySyncPlan = require('../../../utils/applySyncPlan');
 
 const CONTAINERS_FILTER = encodeURIComponent(
   JSON.stringify({ status: ['running'] })
@@ -134,42 +136,24 @@ const useDocker = async () => {
       }
     }
 
-    if (unpinStoppedApps) {
-      // Unpin everything in one statement before re-pinning discovered apps,
-      // instead of issuing one UPDATE per row.
-      await App.update({ isPinned: false }, { where: {} });
-    }
+    // Docker's icon rules: 'custom' never overrides an existing icon, and the
+    // default 'docker' icon never overrides a non-docker icon already set.
+    const iconRule = {
+      forUpdate: (item, app) =>
+        item.icon === 'custom' ||
+        (item.icon === 'docker' && app.icon != 'docker')
+          ? undefined
+          : item.icon,
+      forCreate: (item) => (item.icon === 'custom' ? 'docker' : item.icon),
+    };
 
-    for (const item of dockerApps) {
-      // If app already exists, update it
-      if (apps.some((app) => app.name === item.name)) {
-        const app = apps.find((a) => a.name === item.name);
+    const plan = computeSyncPlan(apps, dockerApps, {
+      source: 'docker',
+      unpinStopped: unpinStoppedApps,
+      iconRule,
+    });
 
-        if (
-          item.icon === 'custom' ||
-          (item.icon === 'docker' && app.icon != 'docker')
-        ) {
-          // update without overriding icon
-          await app.update({
-            name: item.name,
-            url: item.url,
-            isPinned: true,
-          });
-        } else {
-          await app.update({
-            ...item,
-            isPinned: true,
-          });
-        }
-      } else {
-        // else create new app
-        await App.create({
-          ...item,
-          icon: item.icon === 'custom' ? 'docker' : item.icon,
-          isPinned: true,
-        });
-      }
-    }
+    await applySyncPlan(plan);
   }
 };
 

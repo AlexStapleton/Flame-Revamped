@@ -28,9 +28,91 @@ Analysed commit `77d1d4d` (v1.7.1) on 2026-10-10.
 | S9 | Smaller issues | **Fixed** |
 | S10 | **New:** one malformed WebSocket frame crashes the server | **Fixed** (verified) |
 | B1 | `/api/changelog` 500 in the single-arch image | **Fixed** |
-| P1, P3–P6, B2–B5 | Performance items and remaining functional bugs | Open |
+| P1 | Full MDI icon set loaded on the homescreen | **Fixed**: homescreen JS 759 KB → 131 KB (−83%) |
+| P3 | Docker/k8s sync churn, unpins everything, flicker | **Fixed** |
+| P4 | Overlapping status runs; GET probe downloads whole bodies | **Fixed** |
+| P5 | Home re-renders on any state change; weather socket never reconnects | **Fixed** |
+| P6 | Per-request file reads; non-transactional reorders | **Fixed** |
+| B2 / B3 / B4 | Imported CSS lost on restart; weather key needs restart; empty public category 404s | **Fixed** |
+| B5 | `/settings/*` not wrapped in `ProtectedRoute` | Not changed (intentional; the server enforces auth) |
 
-### What changed and how it was verified
+### Performance fixes: what changed and how it was verified
+
+**P1: icons.**
+
+- **Server.** New `GET /api/icons?names=mdiX,...` endpoint, public. It lazy-loads `@mdi/js` on first use and validates names against `^mdi[A-Z][A-Za-z0-9]*$` (at most 300 names, 8 KB query). Responses carry `Cache-Control: public, max-age=86400`.
+- **Client.** `Icon.tsx` batches the names requested in the same tick into one request and caches the results in memory. Unknown names fall back to `mdiCancel`, which is bundled statically.
+- **The `mdi-*.js` chunk no longer exists.** I measured in Chromium with brotli and three apps on the homescreen:
+
+| | Before | After |
+|---|---|---|
+| JavaScript transferred on `/` | 759,316 B | 130,870 B |
+| All bytes on page | 839,252 B | 215,010 B |
+| `/api/icons` responses | – | ~2 KB each |
+
+- **Icons are unchanged.** On the final integrated build, the Docker and Plex cards render their real MDI paths, not the cancel fallback.
+
+**P3: sync.**
+
+- **New `source` column.** Migration `08_app-source` adds a nullable `apps.source` (`docker` / `kubernetes` / null meaning manual).
+- **Diff, then one transaction.** `computeSyncPlan` is a pure, tested function that diffs existing apps against what was discovered. `applySyncPlan` applies the result in one transaction. An unchanged state means 0 writes.
+- **"Unpin stopped apps" only touches same-source apps.** Apps you added by hand, or that came from the other source, are never unpinned.
+- **Adoption of older apps.** Apps that existed before the migration are adopted by name on their next sync.
+- **Scheduled sync is idle-gated** like status checks, with an in-flight guard. The startup sync and `POST /api/apps/sync` always run.
+
+**P4: status checks.**
+
+- **No overlapping runs.** An in-flight guard skips a tick while the previous run is still going.
+- **Probes read headers only.** They use `responseType: 'stream'` and destroy the body stream and the request as soon as headers arrive. A test against a local 20 MB server confirms the socket closes early.
+
+**P5: client.**
+
+- **`Home` re-renders less.** It uses six narrow `useSelector`s instead of selecting the whole store.
+- **The weather socket reconnects.** It backs off exponentially (1 s up to 60 s), pauses while the tab is hidden, and uses a functional state update (this fixes a stale-closure bug).
+
+**P6: small items.**
+
+- **Cached file reads.** CHANGELOG and version info are cached after the first successful read.
+- **Reorders.** Apps, bookmarks and categories reorder sequentially inside one transaction, and a malformed body now returns 400 instead of 500.
+
+**B2–B4: functional bugs.**
+
+- **B2:** imported CSS is written to both `public/` and `data/`.
+- **B3:** the weather jobs are always scheduled and read the current key on each run. Setting a key fetches immediately.
+- **B4:** the guest category lookup uses a left join (`required: false`).
+
+**Follow-up bundle work (after P1).**
+
+With the icon set gone, a sourcemap breakdown of the entry chunk showed:
+
+| Package | Size (raw) |
+|---|---|
+| react-dom | 173 KB |
+| axios | 51 KB |
+| DOMPurify | 29 KB |
+| skycons | 12 KB |
+
+Changes:
+
+- **`react-dom` moved into the `vendor-react` chunk.** `manualChunks` is now a function keyed on package name, because the old config missed `react-dom/client`. React now stays cached across app releases.
+- **DOMPurify loads lazily** in `SafeSvgIcon`, with the same sanitize config, failing closed. **skycons loads lazily** in `WeatherIcon`.
+- **The homescreen grids render without dnd-kit.** The sortable versions, with sensors and the click guard moved over unchanged, are loaded through `React.lazy` only when sorting is enabled: authenticated, ordering by `orderId`, and no active search. Guests never download dnd-kit.
+- **Icon requests are batched with a 20 ms debounce** (100 ms cap) instead of `setTimeout(0)`.
+- **The admin pages and their child components use narrow `useSelector`s.** None subscribes to the whole store any more.
+- **Results:**
+  - The entry chunk went from 331 KB to 106 KB raw (106 KB to 36 KB gzip).
+  - Guest JS on `/` went from 131 KB to 113 KB brotli.
+  - Admin JS went up by 2 KB, because the small lazy sortable chunks are separate requests.
+  - Admin drag-reorder still works, including the post-drag click guard, checked in Chromium.
+- **Not done: replacing axios with `fetch`** (about 18 KB gzip). Every Redux action uses axios, so it's a larger refactor for a modest gain.
+
+**Test suite after the performance work.** 149/149 pass. The client builds, with no `mdi` chunk. A Chromium end-to-end run on the integrated build re-checked the S1, S2 and S5 regressions: the token isn't stolen, `javascript:` URLs return 400, and there are 0 CSP violations.
+
+**Not covered by automated tests.**
+
+- Weather socket reconnect, B3 and P3 against a live Docker daemon. Check them manually: restart the server with a dashboard open, add a weather key in Settings, and toggle "unpin stopped apps" with Docker discovery on.
+
+### Security fixes: what changed and how it was verified
 
 **S1: SVG icon XSS.**
 

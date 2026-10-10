@@ -22,11 +22,11 @@ import {
 } from '../../../utility';
 
 export const Themer = (): JSX.Element => {
-  const {
-    auth: { isAuthenticated },
-    config: { loading, config },
-    theme: { themes, userThemes },
-  } = useSelector((state: State) => state);
+  const isAuthenticated = useSelector((state: State) => state.auth.isAuthenticated);
+  const loading = useSelector((state: State) => state.config.loading);
+  const config = useSelector((state: State) => state.config.config);
+  const themes = useSelector((state: State) => state.theme.themes);
+  const userThemes = useSelector((state: State) => state.theme.userThemes);
 
   const dispatch = useDispatch();
   const { updateConfig } = bindActionCreators(actionCreators, dispatch);

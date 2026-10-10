@@ -18,9 +18,8 @@ interface Props {
 }
 
 export const ThemeCreator = ({ modalHandler }: Props): JSX.Element => {
-  const {
-    theme: { activeTheme, themeInEdit },
-  } = useSelector((state: State) => state);
+  const activeTheme = useSelector((state: State) => state.theme.activeTheme);
+  const themeInEdit = useSelector((state: State) => state.theme.themeInEdit);
 
   const { addTheme, updateTheme, editTheme } = bindActionCreators(
     actionCreators,

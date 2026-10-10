@@ -21,10 +21,9 @@ interface Props {
 }
 
 export const ThemeBuilder = ({ themes }: Props): JSX.Element => {
-  const {
-    auth: { isAuthenticated },
-    theme: { themeInEdit, userThemes },
-  } = useSelector((state: State) => state);
+  const isAuthenticated = useSelector((state: State) => state.auth.isAuthenticated);
+  const themeInEdit = useSelector((state: State) => state.theme.themeInEdit);
+  const userThemes = useSelector((state: State) => state.theme.userThemes);
 
   const { editTheme } = bindActionCreators(actionCreators, useDispatch());
 

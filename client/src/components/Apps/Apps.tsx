@@ -29,10 +29,9 @@ interface Props {
 
 export const Apps = (props: Props): JSX.Element => {
   // Get Redux state
-  const {
-    apps: { apps, loading },
-    auth: { isAuthenticated },
-  } = useSelector((state: State) => state);
+  const apps = useSelector((state: State) => state.apps.apps);
+  const loading = useSelector((state: State) => state.apps.loading);
+  const isAuthenticated = useSelector((state: State) => state.auth.isAuthenticated);
 
   // Get Redux action creators
   const dispatch = useDispatch();

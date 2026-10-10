@@ -1,35 +1,20 @@
+import { lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
 
 import classes from './BookmarkGrid.module.css';
 
 import { Category } from '../../../interfaces';
 
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  MouseSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  rectSortingStrategy,
-} from '@dnd-kit/sortable';
-
-import { useDispatch, useSelector } from 'react-redux';
-import { bindActionCreators } from 'redux';
-import { State } from '../../../store/reducers';
-import { actionCreators } from '../../../store';
-
 import { BookmarkCard } from '../BookmarkCard/BookmarkCard';
-import { Message, SortableItem } from '../../UI';
-import { rebuildOrderFromPinned } from '../../../utility';
-import { useDragClickGuard } from '../../../hooks/useDragClickGuard';
+import { Message } from '../../UI';
+
+// @dnd-kit only loads when reordering is possible (authenticated); the plain
+// grid is the Suspense fallback so layout does not shift while it loads.
+const BookmarkGridSortable = lazy(() =>
+  import('./BookmarkGridSortable').then((m) => ({
+    default: m.BookmarkGridSortable,
+  }))
+);
 
 interface Props {
   categories: Category[];
@@ -49,43 +34,6 @@ export const BookmarkGrid = (props: Props): JSX.Element => {
     fromHomepage = false,
     sortable = false,
   } = props;
-
-  const { categories: allCategories } = useSelector(
-    (state: State) => state.bookmarks
-  );
-  const dispatch = useDispatch();
-  const { reorderCategories } = bindActionCreators(actionCreators, dispatch);
-
-  // Suppress the trailing click after a drag so reordering doesn't open a bookmark.
-  const dragGuard = useDragClickGuard();
-
-  const sensors = useSensors(
-    useSensor(MouseSensor, {
-      // Let clicks through to the bookmark links; only a real drag reorders.
-      activationConstraint: { distance: 8 },
-    }),
-    useSensor(TouchSensor, {
-      // Press-and-hold to reorder on touch; a quick swipe scrolls the page
-      // instead (movement beyond `tolerance` before `delay` aborts the drag).
-      activationConstraint: { delay: 200, tolerance: 8 },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-
-    const oldIndex = categories.findIndex((c) => c.id === active.id);
-    const newIndex = categories.findIndex((c) => c.id === over.id);
-    if (oldIndex < 0 || newIndex < 0) return;
-
-    const reorderedPinned = arrayMove(categories, oldIndex, newIndex);
-    const fullList = rebuildOrderFromPinned(allCategories, reorderedPinned);
-    reorderCategories(fullList);
-  };
 
   // Empty / no-match states (unchanged from the presentational version).
   if (!categories.length) {
@@ -108,40 +56,24 @@ export const BookmarkGrid = (props: Props): JSX.Element => {
 
   const grid = (
     <div className={classes.BookmarkGrid}>
-      {categories.map((category: Category): JSX.Element =>
-        sortable ? (
-          <SortableItem key={category.id} id={category.id}>
-            <BookmarkCard category={category} fromHomepage={fromHomepage} />
-          </SortableItem>
-        ) : (
-          <BookmarkCard
-            category={category}
-            fromHomepage={fromHomepage}
-            key={category.id}
-          />
-        )
-      )}
+      {categories.map((category: Category): JSX.Element => (
+        <BookmarkCard
+          category={category}
+          fromHomepage={fromHomepage}
+          key={category.id}
+        />
+      ))}
     </div>
   );
 
   if (!sortable) return grid;
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCenter}
-      onDragStart={dragGuard.onDragStart}
-      onDragEnd={(e) => {
-        dragGuard.onDragEnd();
-        handleDragEnd(e);
-      }}
-    >
-      <SortableContext
-        items={categories.map((c) => c.id)}
-        strategy={rectSortingStrategy}
-      >
-        {grid}
-      </SortableContext>
-    </DndContext>
+    <Suspense fallback={grid}>
+      <BookmarkGridSortable
+        categories={categories}
+        fromHomepage={fromHomepage}
+      />
+    </Suspense>
   );
 };

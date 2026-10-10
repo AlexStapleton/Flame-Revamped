@@ -19,7 +19,7 @@ import { AuthForm } from './AppDetails/AuthForm/AuthForm';
 import { StyleSettings } from './StyleSettings/StyleSettings';
 
 export const Settings = (): JSX.Element => {
-  const { isAuthenticated } = useSelector((state: State) => state.auth);
+  const isAuthenticated = useSelector((state: State) => state.auth.isAuthenticated);
 
   return (
     <Container>

@@ -138,6 +138,7 @@ api.use('/api/backup', require('./routes/backup'));
 api.use('/api/changelog', changelog);
 api.use('/app/changelog', changelog);
 api.use('/api/version', version);
+api.use('/api/icons', require('./routes/icons'));
 
 api.get(/^\/(?!api)/, (req, res) => {
   res.sendFile(join(__dirname, 'public/index.html'));

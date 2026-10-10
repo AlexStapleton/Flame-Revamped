@@ -15,7 +15,7 @@ interface Props {
 }
 
 export const AppForm = ({ modalHandler }: Props): JSX.Element => {
-  const { appInUpdate } = useSelector((state: State) => state.apps);
+  const appInUpdate = useSelector((state: State) => state.apps.appInUpdate);
 
   const dispatch = useDispatch();
   const { addApp, updateApp, setEditApp, createNotification } =

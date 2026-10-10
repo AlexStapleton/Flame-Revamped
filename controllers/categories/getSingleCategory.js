@@ -25,6 +25,9 @@ const getSingleCategory = asyncWrapper(async (req, res, next) => {
         model: Bookmark,
         as: 'bookmarks',
         where: visibility,
+        // LEFT JOIN: a public category with no visible bookmarks must still be
+        // returned (with an empty list) instead of 404ing for guests.
+        required: false,
       },
     ],
     order,
