@@ -16,8 +16,15 @@ RUN npm ci --omit=dev
 FROM node:24-alpine
 WORKDIR /app
 
-# runtime OS deps
-RUN apk add --no-cache curl jq sqlite
+# Same runtime hardening as Dockerfile.multiarch: apply Alpine security
+# fixes, keep curl for the healthcheck, and remove npm/npx/corepack/yarn,
+# which the server never uses (their bundled deps carried every Node.js CVE
+# in the v1.8.1 scan). See docs/IMAGE_CVE_REVIEW.md.
+RUN apk upgrade --no-cache \
+    && apk add --no-cache curl \
+    && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+        /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+        /usr/local/bin/yarn /usr/local/bin/yarnpkg /opt/yarn-*
 
 # server code + production node_modules
 COPY --from=serverbuilder /app/node_modules ./node_modules

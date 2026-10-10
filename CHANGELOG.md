@@ -1,6 +1,13 @@
 ### Unreleased
+Docker image CVE cleanup. Details, scan results and what each CVE could reach are in [docs/IMAGE_CVE_REVIEW.md](docs/IMAGE_CVE_REVIEW.md).
+
+**Upgrade notes**
+- The published image now runs on Alpine (`node:24-alpine`) instead of Debian 12 (`node:24-bookworm-slim`). Pulling the new image is all that's needed. The `node` user is still uid 1000, so existing data volumes keep working, and `curl` is still in the image for compose healthchecks. The container has `sh` but no `bash`.
 
 **Changes**
+- The image's server build and runtime stages move to `node:24-alpine`. The v1.8.1 image had about 350 Debian package CVEs (5 critical), almost all without a Debian fix and none reachable by Flame. The Alpine base has one, which `apk upgrade` fixes at build time.
+- npm, npx, corepack and yarn are removed from the runtime image. Flame starts with `node server.js` and never uses them, and npm's bundled dependencies (undici, tar, brace-expansion, ip-address and others) were the source of all 21 Node.js CVEs in the scan.
+- The runtime image no longer installs the system SQLite library, which was unused: the sqlite3 module uses its own bundled SQLite. The single-arch `.docker/Dockerfile` also drops the unused `jq` and `sqlite` CLI.
 - New Pi-hole widget in the header, with one row per Pi-hole: today's queries, blocked queries and percent blocked, the blocklist size, and whether blocking is on. Set it up under Settings > Pi-hole. It supports Pi-hole v5 and v6 (chosen per Pi-hole) and up to 10 Pi-holes.
 - Flame's server makes the Pi-hole calls through `GET /api/pihole`, which returns one entry per Pi-hole so a down Pi-hole doesn't hide the others. For v6 it keeps one session open per Pi-hole and logs in again only when Pi-hole expires it. v5 uses `api.php?summaryRaw` with the API token. Each result is cached for 30 seconds, so many open tabs still mean one call per Pi-hole. `GET /api/pihole/update` (admin only) skips the cache and is used by the settings page to test the connection.
 - New config keys: `piholes` (name, address, version and certificate option per Pi-hole) and `PIHOLE_SECRETS` (passwords and tokens by Pi-hole id). `PIHOLE_SECRETS` is handled like the weather key: hidden from visitors who aren't logged in, left out of backup exports, and kept when a backup is restored. Visitors only see each Pi-hole's name. Error details, which can name the Pi-hole host, are only shown to the admin.
