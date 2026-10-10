@@ -1,4 +1,4 @@
-### Unreleased
+### v1.8.2 (2026-10-10)
 Docker image CVE cleanup. Details, scan results and what each CVE could reach are in [docs/IMAGE_CVE_REVIEW.md](docs/IMAGE_CVE_REVIEW.md).
 
 **Upgrade notes**
