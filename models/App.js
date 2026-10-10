@@ -56,6 +56,12 @@ const App = sequelize.define(
       allowNull: true,
       defaultValue: null,
     },
+    // null = created by hand; 'docker' / 'kubernetes' = owned by that sync.
+    source: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      defaultValue: null,
+    },
   },
   {
     tableName: 'apps',

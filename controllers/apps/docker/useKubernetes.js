@@ -3,6 +3,8 @@ const Logger = require('../../../utils/Logger');
 const logger = new Logger();
 const { isDangerousUrl } = require('../../../utils/urlSafety');
 const loadConfig = require('../../../utils/loadConfig');
+const { computeSyncPlan } = require('../../../utils/syncDiff');
+const applySyncPlan = require('../../../utils/applySyncPlan');
 
 const useKubernetes = async () => {
   try {
@@ -56,22 +58,12 @@ const useKubernetes = async () => {
       // --- Sync db with discovered apps ---
       const currentApps = await App.findAll({ order: [[orderType, 'ASC']] });
 
-      if (unpinStoppedApps) {
-        // Unpin all apps in one statement before re-pinning ones found in
-        // Kubernetes, instead of one UPDATE per row.
-        await App.update({ isPinned: false }, { where: {} });
-      }
+      const plan = computeSyncPlan(currentApps, kubernetesApps, {
+        source: 'kubernetes',
+        unpinStopped: unpinStoppedApps,
+      });
 
-      for (const item of kubernetesApps) {
-        const existingApp = currentApps.find((a) => a.name === item.name);
-        if (existingApp) {
-          // update existing app+pin
-          await existingApp.update({ ...item, isPinned: true });
-        } else {
-          // create new app+pin
-          await App.create({ ...item, isPinned: true });
-        }
-      }
+      await applySyncPlan(plan);
     }
   } catch (err) {
     logger.log(`An unexpected error occurred in the Kubernetes service: ${err.message}`, 'ERROR');
