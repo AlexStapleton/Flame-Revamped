@@ -105,14 +105,42 @@ after v1.8.1.
 
 ## Results after the change
 
-Filled in from a scan of the `:dev` image built by CI from this branch. See
-the PR for the numbers.
+The `:dev` image built by CI from this branch (run 38082720320, 2026-10-10,
+Alpine 3.24.2) was scanned with the same trivy setup:
+
+| Image | amd64 findings | arm64 findings |
+|---|---|---|
+| 1.8.1 (Debian 12) | 370 (5 critical, 77 high) | similar (same Debian packages) |
+| `:dev` (this branch) | **0** | **0** |
+
+Compressed size on Docker Hub went from 107 MB to 88 MB (amd64).
+
+### Smoke test
+
+The `:dev` image (amd64) was started on a data folder created and seeded by
+the 1.8.1 image (30 apps, 5 categories, 50 bookmarks, custom CSS):
+
+- Starts cleanly, no pending migrations, `/health` reports healthy and the
+  Docker HEALTHCHECK turns `healthy`.
+- A login token issued by 1.8.1 still works (same `secret.key`).
+- `/api/apps`, `/api/categories`, `/api/bookmarks` and `/api/themes` return
+  byte-for-byte the same JSON as 1.8.1. `/api/config` differs only in
+  `defaultTheme`, which both 1.8.1 and `:dev` normalize from `tron` to its
+  colour string on every start (checked by restarting 1.8.1 on a copy).
+- Login, adding an app, uploading an icon and saving custom CSS work.
+- Docker label discovery through `/var/run/docker.sock` picks up a labelled
+  container.
+- Runs as `node` (uid 1000); `/app/server.js` is not writable by it; npm,
+  npx, yarn, corepack and bash are absent; sqlite3 reports SQLite 3.52.0;
+  DNS lookups resolve as before.
+
+arm64 was built and scanned but could not be started here (no emulation in
+the test environment), so it still needs a run on real arm64 hardware.
 
 ## What is left and why
 
-- Anything still reported after the change is listed in the PR description,
-  with the reason it was left.
+- Nothing is reported on the new image today.
 - Future npm CVEs no longer affect the image, because npm is not in it.
-- New Alpine CVEs will appear over time. Each release build picks up fixes
-  through `apk upgrade`, so rebuilding is enough; no Dockerfile change is
-  needed.
+- New Alpine or Node CVEs will appear over time. `apk upgrade` runs on every
+  release build and the Node base tag floats on `24-alpine`, so rebuilding
+  picks up fixes without a Dockerfile change.
