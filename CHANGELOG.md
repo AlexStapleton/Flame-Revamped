@@ -5,6 +5,7 @@ Dependency modernization, part 1 (safe bumps). The full plan and the source of e
 - Client: react / react-dom 19.3.0, @types/react / @types/react-dom 19.3.0, @types/node 24.19, prettier 3.9.
 - Removed unused client packages: `react-jwt`, `cross-env`, `@types/react-redux`, `@types/react-router-dom` (react-redux and react-router ship their own types).
 - Replaced umzug with a small built-in migration runner (`db/migrator.js`). It uses the same `SequelizeMeta` table, so existing databases carry on unchanged, and a database migrated by this version still works with v1.8.0. This removes the `lodash.get` and `lodash.isequal` build warnings and the 4 moderate `sprintf-js` advisories that S7 had accepted. `npm audit` on the server is now clean.
+- Docker images and CI now run on Node 24 (the current LTS), up from Node 22. `engines.node` is now `>=22.12.0`, since Node 20 reached end of life in April 2026. The multiarch image compiles sqlite3 with node-gyp directly instead of using the `--build-from-source` flag, which npm 11 deprecates.
 - `npm run dev-server` now uses Node's built-in `node --watch` instead of nodemon. This clears the 3 high `npm audit` findings (braces via nodemon's chokidar). Dev only, the Docker image is unaffected.
 
 ### v1.8.0 (2026-10-10)

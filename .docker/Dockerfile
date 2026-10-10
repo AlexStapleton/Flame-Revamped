@@ -1,5 +1,5 @@
 # ---- Stage 1: build the React/Vite client ----
-FROM node:22-alpine AS clientbuilder
+FROM node:24-alpine AS clientbuilder
 WORKDIR /app/client
 COPY client/package*.json ./
 RUN npm ci
@@ -7,13 +7,13 @@ COPY client/ ./
 RUN npm run build
 
 # ---- Stage 2: install production server deps ----
-FROM node:22-alpine AS serverbuilder
+FROM node:24-alpine AS serverbuilder
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev
 
 # ---- Stage 3: assemble the final runtime image ----
-FROM node:22-alpine
+FROM node:24-alpine
 WORKDIR /app
 
 # runtime OS deps
