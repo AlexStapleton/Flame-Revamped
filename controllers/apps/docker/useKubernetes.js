@@ -6,6 +6,14 @@ const loadConfig = require('../../../utils/loadConfig');
 const { computeSyncPlan } = require('../../../utils/syncDiff');
 const applySyncPlan = require('../../../utils/applySyncPlan');
 
+// All ingresses in the cluster. Since @kubernetes/client-node 1.0 the API
+// methods resolve to the object itself (V1IngressList), not { body }; reading
+// res.body.items threw, which the caller reported as "Can't connect".
+const listIngresses = async (k8s, kc) => {
+  const res = await kc.makeApiClient(k8s.NetworkingV1Api).listIngressForAllNamespaces();
+  return res.items;
+};
+
 const useKubernetes = async () => {
   try {
     const k8s = await import('@kubernetes/client-node');
@@ -19,9 +27,7 @@ const useKubernetes = async () => {
       const kc = new k8s.KubeConfig();
       kc.loadFromCluster(); // Load credentials
 
-      const k8sNetworkingV1Api = kc.makeApiClient(k8s.NetworkingV1Api);
-      const res = await k8sNetworkingV1Api.listIngressForAllNamespaces();
-      ingresses = res.body.items;
+      ingresses = await listIngresses(k8s, kc);
     } catch (err) {
       // detailed error => connection fail
       logger.log(`Can't connect to the Kubernetes API. Is Flame running in a cluster? Error: ${err.message}`, 'ERROR');
@@ -69,5 +75,7 @@ const useKubernetes = async () => {
     logger.log(`An unexpected error occurred in the Kubernetes service: ${err.message}`, 'ERROR');
   }
 };
+
+useKubernetes.listIngresses = listIngresses;
 
 module.exports = useKubernetes;

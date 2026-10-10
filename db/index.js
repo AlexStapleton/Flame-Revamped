@@ -1,7 +1,7 @@
 const { Sequelize } = require('sequelize');
 const { join } = require('path');
 const fs = require('fs');
-const { Umzug, SequelizeStorage } = require('umzug');
+const { createMigrator } = require('./migrator');
 
 // Utils
 const backupDB = require('./utils/backupDb');
@@ -14,21 +14,10 @@ const sequelize = new Sequelize({
   logging: false,
 });
 
-const umzug = new Umzug({
-  migrations: {
-    glob: ['migrations/*.js', { cwd: __dirname }],
-    resolve: ({ name, path, context }) => {
-      const migration = require(path);
-      return {
-        name,
-        up: async () => migration.up(context),
-        down: async () => migration.down(context),
-      };
-    },
-  },
-  context: sequelize.getQueryInterface(),
-  storage: new SequelizeStorage({ sequelize }),
-  logger: console,
+const migrator = createMigrator({
+  sequelize,
+  dir: join(__dirname, 'migrations'),
+  logger,
 });
 
 const connectDB = async () => {
@@ -51,23 +40,23 @@ const connectDB = async () => {
     );
 
     // debug => console => what 2 do ??
-    const executed = await umzug.executed();
+    const executed = await migrator.executed();
     logger.log(
       `Executed migrations: ${
-        executed.length ? executed.map((m) => m.name).join(', ') : '(none)'
+        executed.length ? executed.join(', ') : '(none)'
       }`
     );
 
-    const pending = await umzug.pending();
+    const pending = await migrator.pending();
     logger.log(
       `Pending migrations: ${
-        pending.length ? pending.map((m) => m.name).join(', ') : '(none)'
+        pending.length ? pending.join(', ') : '(none)'
       }`
     );
 
     if (pending.length > 0) {
       logger.log('Executing pending migrations');
-      await umzug.up();
+      await migrator.up();
       logger.log('Migrations completed');
     }
 

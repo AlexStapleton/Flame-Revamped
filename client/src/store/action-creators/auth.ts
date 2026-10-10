@@ -7,14 +7,14 @@ import {
   LoginAction,
   LogoutAction,
 } from '../actions/auth';
-import axios, { AxiosError } from 'axios';
+import { http, HttpError } from '../../utility/http';
 import { getApps, getCategories } from '.';
 
 export const login =
   (formData: { password: string; duration: string }) =>
   async (dispatch: Dispatch<LoginAction>) => {
     try {
-      const res = await axios.post<ApiResponse<{ token: string }>>(
+      const res = await http.post<ApiResponse<{ token: string }>>(
         '/api/auth',
         formData
       );
@@ -48,7 +48,7 @@ export const autoLogin = () => async (dispatch: Dispatch<AutoLoginAction>) => {
   const token: string = localStorage.token;
 
   try {
-    await axios.post<ApiResponse<{ token: { isValid: boolean } }>>(
+    await http.post<ApiResponse<{ token: { isValid: boolean } }>>(
       '/api/auth/validate',
       { token }
     );
@@ -71,7 +71,7 @@ export const autoLogin = () => async (dispatch: Dispatch<AutoLoginAction>) => {
 export const authError =
   (error: unknown, showNotification: boolean) =>
   (dispatch: Dispatch<AuthErrorAction>) => {
-    const apiError = error as AxiosError;
+    const apiError = error as HttpError;
 
     if (showNotification) {
       dispatch<any>({

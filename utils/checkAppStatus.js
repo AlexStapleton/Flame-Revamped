@@ -1,29 +1,31 @@
-const axios = require('axios');
-
 // Map a probe outcome to a status string. Pure + unit-testable (no network).
 const mapResult = (probe) => (probe && probe.ok ? 'online' : 'offline');
 
 // Probe one app's URL. "Reachable" = ANY HTTP response (auth-gated apps return
 // 401/403 but are up). Returns { ok, statusCode }.
 //
-// Only the status line and headers matter, so responses are requested as streams
-// and the stream is destroyed as soon as the response arrives. Without this, the
-// GET fallback would download the whole body of whatever the host serves.
-const probeOpts = {
-  timeout: 5000,
-  validateStatus: () => true,
-  maxRedirects: 5,
-  maxContentLength: 64 * 1024,
-  responseType: 'stream',
+// Only the status line and headers matter, so the body is cancelled as soon as
+// the response arrives. Without this, the GET fallback would download the whole
+// body of whatever the host serves. Cancelling it also closes the connection,
+// so the server stops sending.
+const PROBE_TIMEOUT_MS = 5000;
+
+// fetch refuses URLs with embedded credentials (http://user:pass@host). The
+// probe only needs any HTTP response (a 401 still means "up"), so drop them.
+const withoutCredentials = (url) => {
+  const u = new URL(url);
+  u.username = '';
+  u.password = '';
+  return u.href;
 };
 
 const probeOnce = async (method, url) => {
-  const res = await axios({ ...probeOpts, method, url });
-  // Destroying the body stream alone leaves the socket open (axios may wrap it).
-  // Destroying the underlying request closes the connection so the server stops
-  // sending the body.
-  res.data.destroy();
-  if (res.request && typeof res.request.destroy === 'function') res.request.destroy();
+  const res = await fetch(withoutCredentials(url), {
+    method,
+    redirect: 'follow',
+    signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
+  });
+  if (res.body) await res.body.cancel();
   return { ok: true, statusCode: res.status };
 };
 

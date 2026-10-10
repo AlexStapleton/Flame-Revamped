@@ -1,5 +1,5 @@
 import { useState, useEffect, Fragment } from 'react';
-import axios from 'axios';
+import { http } from '../../../utility/http';
 
 // Redux
 import { useSelector } from 'react-redux';
@@ -25,7 +25,7 @@ export const WeatherWidget = (): JSX.Element => {
 
   // Initial request to get data
   useEffect(() => {
-    axios
+    http
       .get<ApiResponse<Weather[]>>('/api/weather')
       .then((data) => {
         const weatherData = data.data.data[0];

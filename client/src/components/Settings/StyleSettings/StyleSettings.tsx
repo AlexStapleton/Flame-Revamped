@@ -1,5 +1,5 @@
 import { useState, useEffect, ChangeEvent, FormEvent } from 'react';
-import axios from 'axios';
+import { http } from '../../../utility/http';
 
 // Redux
 import { useDispatch } from 'react-redux';
@@ -20,7 +20,7 @@ export const StyleSettings = (): JSX.Element => {
   const [customStyles, setCustomStyles] = useState<string>('');
 
   useEffect(() => {
-    axios
+    http
       .get<ApiResponse<string>>('/api/config/0/css')
       .then((data) => setCustomStyles(data.data.data))
       .catch((err) => console.log(err.response));
@@ -34,7 +34,7 @@ export const StyleSettings = (): JSX.Element => {
   const formSubmitHandler = (e: FormEvent) => {
     e.preventDefault();
 
-    axios
+    http
       .put<ApiResponse<{}>>(
         '/api/config/0/css',
         { styles: customStyles },

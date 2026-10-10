@@ -11,7 +11,7 @@ import {
   SortAppsAction,
   UpdateAppAction,
 } from '../actions/app';
-import axios from 'axios';
+import { http } from '../../utility/http';
 import { applyAuth } from '../../utility';
 import { primeIconCache } from '../../components/UI/Icons/Icon/iconCache';
 import { State } from '../reducers';
@@ -24,7 +24,7 @@ export const getApps =
     });
 
     try {
-      const res = await axios.get<ApiResponse<App[]> & { icons?: IconPaths }>(
+      const res = await http.get<ApiResponse<App[]> & { icons?: IconPaths }>(
         '/api/apps',
         { headers: applyAuth() }
       );
@@ -44,7 +44,7 @@ export const getApps =
 export const syncApps =
   () => async (dispatch: Dispatch<GetAppsAction<undefined | App[]>>) => {
     try {
-      const res = await axios.post<ApiResponse<App[]>>(
+      const res = await http.post<ApiResponse<App[]>>(
         '/api/apps/sync',
         {},
         { headers: applyAuth() }
@@ -78,7 +78,7 @@ export const pinApp =
   (app: App) => async (dispatch: Dispatch<PinAppAction>) => {
     try {
       const { id, isPinned, name } = app;
-      const res = await axios.put<ApiResponse<App>>(
+      const res = await http.put<ApiResponse<App>>(
         `/api/apps/${id}`,
         {
           isPinned: !isPinned,
@@ -112,7 +112,7 @@ export const pinApp =
 export const addApp =
   (formData: NewApp | FormData) => async (dispatch: Dispatch<AddAppAction>) => {
     try {
-      const res = await axios.post<ApiResponse<App>>('/api/apps', formData, {
+      const res = await http.post<ApiResponse<App>>('/api/apps', formData, {
         headers: applyAuth(),
       });
 
@@ -139,7 +139,7 @@ export const addApp =
 export const deleteApp =
   (id: number) => async (dispatch: Dispatch<DeleteAppAction>) => {
     try {
-      await axios.delete<ApiResponse<{}>>(`/api/apps/${id}`, {
+      await http.delete<ApiResponse<{}>>(`/api/apps/${id}`, {
         headers: applyAuth(),
       });
 
@@ -164,7 +164,7 @@ export const updateApp =
   (id: number, formData: NewApp | FormData) =>
   async (dispatch: Dispatch<UpdateAppAction>) => {
     try {
-      const res = await axios.put<ApiResponse<App>>(
+      const res = await http.put<ApiResponse<App>>(
         `/api/apps/${id}`,
         formData,
         {
@@ -220,7 +220,7 @@ export const reorderApps =
         })
       );
 
-      await axios.put<ApiResponse<{}>>('/api/apps/0/reorder', updateQuery, {
+      await http.put<ApiResponse<{}>>('/api/apps/0/reorder', updateQuery, {
         headers: applyAuth(),
       });
     } catch (err) {
