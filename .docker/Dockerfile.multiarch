@@ -2,6 +2,13 @@
 # BUILDPLATFORM / TARGETPLATFORM are automatic global build args provided by
 # BuildKit — they must NOT be re-declared here with `ARG` (an empty re-declaration
 # blanks them, making `--platform=$BUILDPLATFORM` invalid and failing the build).
+#
+# Base image: node:24-alpine. Until v1.8.1 the build and runtime stages used
+# node:24-bookworm-slim (Debian 12). A trivy scan of the v1.8.1 image found
+# ~350 OS package CVEs there, most with no Debian fix available, while
+# node:24-alpine had a single (fixable) one. Flame never shells out, so it
+# needs nothing from the OS beyond musl, libstdc++ and curl for the
+# healthcheck. See docs/IMAGE_CVE_REVIEW.md.
 
 ### Client build (runs on host arch)
 FROM --platform=$BUILDPLATFORM node:24-alpine AS clientbuilder
@@ -11,22 +18,16 @@ RUN --mount=type=cache,target=/root/.npm npm ci
 COPY client/ ./
 RUN npm run build
 
-### Server build (targets arm/v7)
-FROM --platform=$TARGETPLATFORM node:24-bookworm-slim AS builder
-ARG DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install -y -q --no-install-recommends \
-  python3 python3-setuptools make g++ pkg-config libsqlite3-dev ca-certificates \
-  && rm -rf /var/lib/apt/lists/*
+### Server build (target arch)
+FROM --platform=$TARGETPLATFORM node:24-alpine AS builder
+RUN apk add --no-cache python3 make g++
 
 WORKDIR /app
 ENV NODE_ENV=production npm_config_jobs=4 npm_config_python=/usr/bin/python3
 COPY package*.json ./
-# Build sqlite3 from source instead of using its published prebuilt. The
-# sqlite3 6.x linux prebuilt is linked against glibc 2.38, newer than
-# bookworm's 2.36, so the downloaded binary aborts at runtime with
-# "libm.so.6: version `GLIBC_2.38' not found" (ERR_DLOPEN_FAILED). The
-# toolchain installed above (python3/make/g++/libsqlite3-dev) compiles a
-# binary matched to this base image's glibc for every target arch.
+# Build sqlite3 from source instead of using its published prebuilt, so the
+# binary always matches this image's libc on every target arch. sqlite3 uses
+# its bundled SQLite amalgamation, so no system libsqlite3 is needed at runtime.
 # Install scripts are skipped and sqlite3 (the only production dependency with
 # one) is compiled with node-gyp directly. npm 11 deprecates the old
 # `--build-from-source` flag and npm 12 will drop it.
@@ -45,12 +46,21 @@ COPY --from=clientbuilder /app/client/dist/ /app/public/
 # no client sources
 RUN rm -rf /app/client
 
-### Runtime (arm/v7)
-FROM node:24-bookworm-slim
-ARG DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install -y -q --no-install-recommends \
-  libsqlite3-0 libstdc++6 ca-certificates curl \
-  && rm -rf /var/lib/apt/lists/*
+### Runtime
+FROM node:24-alpine
+# - `apk upgrade` picks up Alpine security fixes released after the base image
+#   was built.
+# - curl is kept for the HEALTHCHECK below and for existing docker-compose
+#   files that call `curl -fs http://localhost:5005/health`.
+# - npm, npx, corepack and yarn are removed: the server runs with plain
+#   `node server.js` and never uses them, and their bundled dependencies
+#   (undici, tar, brace-expansion, ip-address, ...) were the source of every
+#   Node.js CVE in the v1.8.1 scan.
+RUN apk upgrade --no-cache \
+    && apk add --no-cache curl \
+    && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+        /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+        /usr/local/bin/yarn /usr/local/bin/yarnpkg /opt/yarn-*
 
 ENV NODE_ENV=production
 WORKDIR /app
