@@ -1,6 +1,40 @@
-### Unreleased
-- Security: auth tokens are now bound to the admin password (keyed `pwf` fingerprint claim) and the JWT algorithm is pinned to HS256, so changing `PASSWORD` invalidates every previously issued token.
-- Tokens issued before this change carry no fingerprint and are rejected once: existing sessions must log in again once after upgrading.
+### v1.8.0 (2026-10-10)
+Security, performance and bug-fix release. Full findings and verification notes are in [docs/SECURITY_PERFORMANCE_REVIEW.md](docs/SECURITY_PERFORMANCE_REVIEW.md).
+
+**Upgrade notes**
+- Everyone has to log in once after upgrading. Tokens are now bound to the admin password, and older tokens carry no fingerprint, so they are rejected.
+- A Content-Security-Policy is now on by default. If a custom setup breaks, `CSP=off` turns it off and logs a warning.
+- Migration `08_app-source` adds an `apps.source` column. It runs automatically on startup.
+
+**Security**
+- Fixed an XSS through SVG icons (S1). `external-svg-loader` is replaced by `SafeSvgIcon`, which sanitizes each SVG with DOMPurify before inserting it.
+- Blocked dangerous URL schemes (`javascript`, `vbscript`, `data`, `blob`, `file`) in apps, bookmarks, Docker/Kubernetes discovery, backup import and the search bar's open-first-result (S2).
+- `/health` is now a cheap liveness check. It no longer reads `access.log`, can't be made to report unhealthy by unauthenticated requests, and no longer leaks the log (S3/P2).
+- Capped WebSocket payloads (1 KB, `/socket` only) and the size of unauthenticated JSON bodies (100 KB; backup import keeps 10 MB) (S4).
+- Added a Content-Security-Policy via helmet (S5).
+- Tokens are bound to the admin password (keyed `pwf` fingerprint claim) and the JWT algorithm is pinned to HS256, so changing `PASSWORD` invalidates every previously issued token (S6).
+- Resolved dependency advisories: client 0; server 4 moderate in `sprintf-js` via umzug's CLI, which Flame never runs, so they are accepted (S7).
+- Docker integration: `dockerHost` accepts `https://host:2376`, the container query is fixed, and the README documents a read-only socket proxy (S8).
+- Closed guest data leaks in `GET /api/apps/:id` and bookmarks inside private categories. Backup import now filters config to known keys (S9).
+- Least-privilege images: only `data/`, `log/` and `public/` are writable by `node`, and the multiarch image has a HEALTHCHECK. The k8s manifests set a security context, resource limits and probes (S9).
+- The update check now runs on the server with caching, so viewers' browsers no longer contact GitHub (S9).
+- Fixed a crash where one malformed WebSocket frame, sent unauthenticated, killed the server (S10).
+
+**Performance**
+- The homescreen no longer loads the full Material Design Icons set. Icon paths come with the apps and categories responses, and `GET /api/icons` serves any others. Homescreen JS went from 759 KB to about 114 KB (P1).
+- Docker/Kubernetes sync is paused while nobody is viewing, applies changes in one transaction, and only unpins apps it discovered itself, so manually added apps stay pinned and the homescreen no longer flickers (P3).
+- Status checks can't overlap, and probes stop reading as soon as headers arrive (P4).
+- The homescreen re-renders less, and the weather socket reconnects after a server restart (P5).
+- Static files are cached, and reorders run in one transaction (P6).
+- Smaller bundles: DOMPurify, skycons and the drag-and-drop grids load lazily (guests never download dnd-kit), and `react-dom` is in the cached vendor chunk.
+- Admins no longer fetch apps and bookmarks twice on load.
+
+**Fixes**
+- `/api/changelog` no longer returns 500 in the single-arch image (B1).
+- Imported custom CSS survives a restart (B2).
+- Setting a weather API key takes effect without a restart (B3).
+- Categories with no public bookmarks no longer 404 for guests (B4).
+- Icon URLs on hosts without a dot (for example `http://nas/icon.png`) are no longer treated as uploads.
 
 ### v1.7.1 (2026-06-25)
 - Fixed mobile/touch dashboards being unscrollable: the homescreen app and bookmark grids set `touch-action: none` on every pinned card, so touching a card (which fills the single-column mobile viewport) gave the browser nowhere to start a scroll, and the `PointerSensor`'s 8px drag threshold turned any swipe into a reorder. Cards now use `touch-action: pan-y`, and the grids use a `MouseSensor` (desktop, unchanged 8px threshold) plus a `TouchSensor` with a 200ms press-and-hold activation. A quick swipe now scrolls; a press-and-hold then drag reorders — the standard mobile rearrange gesture. Desktop mouse/keyboard reordering is unchanged.
