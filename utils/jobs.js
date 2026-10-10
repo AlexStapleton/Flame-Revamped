@@ -4,6 +4,7 @@ const clearWeatherData = require('./clearWeatherData');
 const syncApps = require('./syncApps');
 const createSyncTick = require('./syncTick');
 const runStatusChecks = require('./runStatusChecks');
+const { createStatusTick } = require('./statusTick');
 const { isActive } = require('./activity');
 const Sockets = require('../Sockets');
 const Logger = require('./Logger');
@@ -70,14 +71,12 @@ module.exports = async function () {
   // tick. The window is generous relative to the poll cadence so a normally-open
   // tab never trips it.
   // (idleWindowMs is defined above, before the sync schedule.)
-  const statusTick = async () => {
-    if (!isActive(idleWindowMs)) return;
-    try {
-      await runStatusChecks();
-    } catch (err) {
-      logger.log(`Status checks failed: ${err.message}`, 'ERROR');
-    }
-  };
+  const statusTick = createStatusTick({
+    isActive,
+    run: runStatusChecks,
+    idleWindowMs,
+    onError: (err) => logger.log(`Status checks failed: ${err.message}`, 'ERROR'),
+  });
   setInterval(statusTick, intervalMs);
   statusTick(); // run once at startup
 };
