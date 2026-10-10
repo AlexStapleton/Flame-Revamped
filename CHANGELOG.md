@@ -1,5 +1,13 @@
-### Unreleased
-Dependency modernization, part 1 (safe bumps). The full plan and the source of each build warning are in [docs/DEPENDENCY_MODERNIZATION.md](docs/DEPENDENCY_MODERNIZATION.md).
+### v1.8.1 (2026-10-10)
+Dependency modernization and small fixes. The full plan and the source of each build warning are in [docs/DEPENDENCY_MODERNIZATION.md](docs/DEPENDENCY_MODERNIZATION.md).
+
+**Upgrade notes**
+- The Docker images now run on Node 24 LTS instead of Node 22. Pulling the new image is all that's needed.
+- Running without Docker now needs Node 22.12 or newer (`engines.node` is `>=22.12.0`). Node 20 is no longer supported.
+- **If Flame reaches the internet through a proxy** (`HTTP_PROXY` / `HTTPS_PROXY`), also set `NODE_USE_ENV_PROXY=1`. Without it, the weather widget and the update check will stop working. Node 24, which the Docker image uses, supports the flag, and so do recent Node 22 releases. axios read those variables itself, but Node's built-in fetch only does when that flag is set.
+- Migrations now use a built-in runner instead of umzug. It uses the same `SequelizeMeta` table, so nothing changes for existing databases, and rolling back to v1.8.0 still works.
+
+**Changes**
 
 - Server: express 5.3.0, express-rate-limit 8.7.1, express-static-gzip 3.0.2, helmet 8.3.0, ws 8.22.0.
 - Client: react / react-dom 19.3.0, @types/react / @types/react-dom 19.3.0, @types/node 24.19, prettier 3.9.
