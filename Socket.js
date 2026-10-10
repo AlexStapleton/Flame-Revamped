@@ -4,7 +4,14 @@ const logger = new Logger();
 
 class Socket {
   constructor(server) {
-    this.webSocketServer = new WebSocket.Server({ server });
+    // Only /socket is served, and the server never reads client messages, so
+    // cap inbound frames at 1 KiB (ws default is 100 MiB) to stop unauthenticated
+    // clients from forcing large allocations. Oversized frames close with 1009.
+    this.webSocketServer = new WebSocket.Server({
+      server,
+      path: '/socket',
+      maxPayload: 1024,
+    });
 
     this.webSocketServer.on('listening', () => {
       logger.log('Socket: listen');
@@ -15,6 +22,11 @@ class Socket {
       webSocketClient.isAlive = true;
       webSocketClient.on('pong', () => {
         webSocketClient.isAlive = true;
+      });
+      // Without an 'error' listener, an oversized or malformed frame (ws emits
+      // 'error' with code 1009/1002) would throw and crash the whole server.
+      webSocketClient.on('error', (err) => {
+        logger.log(`Socket client error: ${err.message}`, 'WARN');
       });
     });
 

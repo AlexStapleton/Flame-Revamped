@@ -89,8 +89,12 @@ api.use(
   })
 );
 
-// Body parser
-api.use(express.json({ limit: '10mb' }));
+// Body parsers. Only backup import needs a large body, so it gets a 10 MB
+// parser mounted first. body-parser skips requests already parsed (req._body),
+// so the global parser below does not re-check import bodies against 100 kb.
+// Every other route, including unauthenticated ones, is capped at 100 kb.
+api.use('/api/backup/import', express.json({ limit: '10mb' }));
+api.use(express.json({ limit: '100kb' }));
 
 // Link controllers with routes
 api.use('/api/apps', require('./routes/apps'));
