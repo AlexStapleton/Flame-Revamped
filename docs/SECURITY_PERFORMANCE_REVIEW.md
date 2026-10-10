@@ -81,6 +81,31 @@ Analysed commit `77d1d4d` (v1.7.1) on 2026-10-10.
 - **B3:** the weather jobs are always scheduled and read the current key on each run. Setting a key fetches immediately.
 - **B4:** the guest category lookup uses a left join (`required: false`).
 
+**Follow-up bundle work (after P1).**
+
+With the icon set gone, a sourcemap breakdown of the entry chunk showed:
+
+| Package | Size (raw) |
+|---|---|
+| react-dom | 173 KB |
+| axios | 51 KB |
+| DOMPurify | 29 KB |
+| skycons | 12 KB |
+
+Changes:
+
+- **`react-dom` moved into the `vendor-react` chunk.** `manualChunks` is now a function keyed on package name, because the old config missed `react-dom/client`. React now stays cached across app releases.
+- **DOMPurify loads lazily** in `SafeSvgIcon`, with the same sanitize config, failing closed. **skycons loads lazily** in `WeatherIcon`.
+- **The homescreen grids render without dnd-kit.** The sortable versions, with sensors and the click guard moved over unchanged, are loaded through `React.lazy` only when sorting is enabled: authenticated, ordering by `orderId`, and no active search. Guests never download dnd-kit.
+- **Icon requests are batched with a 20 ms debounce** (100 ms cap) instead of `setTimeout(0)`.
+- **The admin pages and their child components use narrow `useSelector`s.** None subscribes to the whole store any more.
+- **Results:**
+  - The entry chunk went from 331 KB to 106 KB raw (106 KB to 36 KB gzip).
+  - Guest JS on `/` went from 131 KB to 113 KB brotli.
+  - Admin JS went up by 2 KB, because the small lazy sortable chunks are separate requests.
+  - Admin drag-reorder still works, including the post-drag click guard, checked in Chromium.
+- **Not done: replacing axios with `fetch`** (about 18 KB gzip). Every Redux action uses axios, so it's a larger refactor for a modest gain.
+
 **Test suite after the performance work.** 149/149 pass. The client builds, with no `mdi` chunk. A Chromium end-to-end run on the integrated build re-checked the S1, S2 and S5 regressions: the token isn't stolen, `javascript:` URLs return 400, and there are 0 CSP violations.
 
 **Not covered by automated tests.**
