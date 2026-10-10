@@ -32,10 +32,10 @@ export default defineConfig({
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],
           'vendor-redux': ['redux', 'react-redux', 'redux-thunk'],
           'vendor-dnd': ['@dnd-kit/core', '@dnd-kit/sortable'],
-          // NOTE: @mdi/js is intentionally NOT pinned here. It's dynamically
-          // imported in Icon.tsx, so Rollup gives it its own async chunk that
-          // loads off the initial critical path. Pinning it (especially with the
-          // statically-imported @mdi/react) would pull it back into eager load.
+          // NOTE: @mdi/js is intentionally NOT pinned here. The client only
+          // imports single named icons from it (tree-shaken by Rollup); arbitrary
+          // user-chosen icon names are fetched from the server (GET /api/icons).
+          // Pinning it would pull the whole ~2.7MB set into a chunk.
         },
       },
     },
