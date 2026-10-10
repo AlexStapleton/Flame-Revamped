@@ -1,30 +1,30 @@
 services:
   flame:
-    image: YOUR_DOCKERHUB_USERNAME/flame-revamped:latest
+    image: alexstapo/flame-revamped:latest
     container_name: flame
     volumes:
       - /path/to/host/data:/app/data
-      # - /path/to/favicon.ico:/app/public/icons/favicon.ico  #  optional change to your own favicon.co
-      # - /var/log/flame-dash:/app/log  #  optional external access.log remote logging or fail2ban
-      # - /var/run/docker.sock:/var/run/docker.sock # optional but required for Docker integration
+      # - /path/to/favicon.ico:/app/public/icons/favicon.ico  # optional: your own favicon
+      # - /var/log/flame-dash:/app/log  # optional: access.log for remote logging or fail2ban
+      # - /var/run/docker.sock:/var/run/docker.sock  # optional: Docker integration (a socket proxy is safer, see README)
     ports:
       - 5005:5005
+    # Docker secrets (1): each file in /run/secrets sets the env var with the
+    # file's name in upper case, so a secret named "password" sets PASSWORD.
     # secrets:
-    #   - password # optional but required for (1)
+    #   - password
     environment:
-      - PASSWORD=change_me_to_a_strong_password
-      # - PASSWORD_FILE=/run/secrets/password # optional but required for (1)
-      # - WEATHER_CACHE_HOURS=6  #  optional to cut down calls to weather api
+      - PASSWORD=change_me_to_a_strong_password  # remove when using the secret (1)
+      # - TRUST_PROXY=1  # optional: number of reverse proxies in front of Flame
+      # - NODE_USE_ENV_PROXY=1  # optional: needed if outgoing traffic uses HTTP(S)_PROXY
     restart: unless-stopped
-
-# optional but required for Docker secrets (1)
-# secrets:
-#   password:
-#     file: /path/to/secrets/password
-
     healthcheck:
       test: ["CMD", "curl", "-fs", "http://localhost:5005/health"]
       interval: 60s
       timeout: 10s
       retries: 3
 
+# Docker secrets (1)
+# secrets:
+#   password:
+#     file: /path/to/secrets/password
