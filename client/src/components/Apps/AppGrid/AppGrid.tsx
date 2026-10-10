@@ -1,33 +1,17 @@
+import { lazy, Suspense } from 'react';
 import classes from './AppGrid.module.css';
 import { Link } from 'react-router-dom';
 import { App } from '../../../interfaces/App';
 
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  MouseSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from '@dnd-kit/core';
-import {
-  arrayMove,
-  SortableContext,
-  sortableKeyboardCoordinates,
-  rectSortingStrategy,
-} from '@dnd-kit/sortable';
-
-import { useDispatch, useSelector } from 'react-redux';
-import { bindActionCreators } from 'redux';
-import { State } from '../../../store/reducers';
-import { actionCreators } from '../../../store';
-
 import { AppCard } from '../AppCard/AppCard';
-import { Message, SortableItem } from '../../UI';
-import { rebuildOrderFromPinned } from '../../../utility';
-import { useDragClickGuard } from '../../../hooks/useDragClickGuard';
+import { Message } from '../../UI';
+
+// Reordering (and therefore @dnd-kit) is only possible for authenticated users,
+// so the sortable grid is split into its own lazy chunk. The plain grid is the
+// Suspense fallback, so there is no layout shift while it loads.
+const AppGridSortable = lazy(() =>
+  import('./AppGridSortable').then((m) => ({ default: m.AppGridSortable }))
+);
 
 interface Props {
   apps: App[];
@@ -39,41 +23,6 @@ interface Props {
 }
 
 export const AppGrid = (props: Props): JSX.Element => {
-  const { apps: allApps } = useSelector((state: State) => state.apps);
-  const dispatch = useDispatch();
-  const { reorderApps } = bindActionCreators(actionCreators, dispatch);
-
-  // Suppress the trailing click after a drag so reordering a card doesn't open it.
-  const dragGuard = useDragClickGuard();
-
-  const sensors = useSensors(
-    useSensor(MouseSensor, {
-      // Let clicks through to the app link; only a real drag reorders.
-      activationConstraint: { distance: 8 },
-    }),
-    useSensor(TouchSensor, {
-      // Press-and-hold to reorder on touch; a quick swipe scrolls the page
-      // instead (movement beyond `tolerance` before `delay` aborts the drag).
-      activationConstraint: { delay: 200, tolerance: 8 },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-
-    const oldIndex = props.apps.findIndex((a) => a.id === active.id);
-    const newIndex = props.apps.findIndex((a) => a.id === over.id);
-    if (oldIndex < 0 || newIndex < 0) return;
-
-    const reorderedPinned = arrayMove(props.apps, oldIndex, newIndex);
-    const fullList = rebuildOrderFromPinned(allApps, reorderedPinned);
-    reorderApps(fullList);
-  };
-
   // Empty states (unchanged from the presentational version).
   if (!(props.searching || props.apps.length)) {
     return props.totalApps ? (
@@ -95,36 +44,17 @@ export const AppGrid = (props: Props): JSX.Element => {
 
   const grid = (
     <div className={classes.AppGrid}>
-      {props.apps.map((app: App): JSX.Element =>
-        props.sortable ? (
-          <SortableItem key={app.id} id={app.id}>
-            <AppCard app={app} />
-          </SortableItem>
-        ) : (
-          <AppCard key={app.id} app={app} />
-        )
-      )}
+      {props.apps.map((app: App): JSX.Element => (
+        <AppCard key={app.id} app={app} />
+      ))}
     </div>
   );
 
   if (!props.sortable) return grid;
 
   return (
-    <DndContext
-      sensors={sensors}
-      collisionDetection={closestCenter}
-      onDragStart={dragGuard.onDragStart}
-      onDragEnd={(e) => {
-        dragGuard.onDragEnd();
-        handleDragEnd(e);
-      }}
-    >
-      <SortableContext
-        items={props.apps.map((a) => a.id)}
-        strategy={rectSortingStrategy}
-      >
-        {grid}
-      </SortableContext>
-    </DndContext>
+    <Suspense fallback={grid}>
+      <AppGridSortable apps={props.apps} />
+    </Suspense>
   );
 };
