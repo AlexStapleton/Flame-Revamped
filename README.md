@@ -19,6 +19,7 @@ Flame is easy to setup and use. With built-in editors, it allows you to setup yo
 - 🔑 Authentication system to protect your settings, apps and bookmarks
 - 🔨 Dozens of options to customize Flame interface to your needs, including support for custom CSS, 15 built-in color themes and custom theme builder
 - ☀️ Weather widget with current temperature, cloud coverage and animated weather status
+- 🛡️ Pi-hole widget with today's queries, blocked queries, blocklist size and blocking status, for one or more Pi-holes (v5 and v6)
 - 🐳 Docker integration to automatically pick and add apps based on their labels
 
 ## Installation
@@ -180,6 +181,20 @@ For list of supported search engines, shortcuts and more about searching functio
    > Free plan allows for 1M calls per month. Flame is making less then 3K API calls per month.
 2. Get lat/long for your location. You can get them from [latlong.net](https://www.latlong.net/convert-address-to-lat-long.html).
 3. Enter and save data. Weather widget will now update and should be visible on Home page.
+
+### Setting up the Pi-hole widget
+
+Works with Pi-hole v5 and v6, and with more than one Pi-hole (up to 10).
+
+1. Get the secret Flame will use for each Pi-hole:
+   - **v6:** in Pi-hole, open Settings > Web interface / API (Expert mode), use "Configure app password" and copy the app password. Skip this if your Pi-hole has no password.
+   - **v5:** in Pi-hole, open Settings > API / Web interface and click "Show API token".
+2. In Flame, open Settings > Pi-hole and click "Add Pi-hole". Enter a name, the address as Flame's server reaches it (for example `http://192.168.1.2`, or `http://pihole` inside a Docker network), the version, and the password or token. Repeat for each Pi-hole.
+3. Save. Flame tests each Pi-hole and shows the result. The widget appears in the header on screens 900px and wider, with one row per Pi-hole.
+
+When you're logged in, click a Pi-hole's shield to pause its blocking, and click the dimmed shield to turn blocking back on. How long a pause lasts is set under Settings > Pi-hole > Pause blocking: 30 seconds, 5 minutes (the default), 30 minutes, 1 hour, or until you click again. Visitors who aren't logged in can't toggle it.
+
+Flame's server talks to the Pi-holes, so passwords and tokens never reach the browser. They are hidden from visitors who aren't logged in and left out of backups, and so are the Pi-hole addresses. A Pi-hole that can't be reached shows as "unreachable", and a logged-in admin sees the reason when they hover over it. For an `https://` address with a self-signed certificate, set "Skip certificate check" to True, or use the `http://` address instead. v5 sends its token in the URL, so prefer a LAN or Docker-network address for it.
 
 ### Docker integration
 

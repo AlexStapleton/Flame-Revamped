@@ -1,0 +1,83 @@
+/* Hidden on narrow screens, like the weather widget. One row per Pi-hole:
+   icon | name | queries | blocked | blocklist, under one row of labels. */
+.PiholeWidget {
+  display: none;
+  grid-template-columns: auto auto auto auto auto;
+  align-items: center;
+  column-gap: 14px;
+  row-gap: 4px;
+  color: var(--color-primary);
+}
+
+.PiholeIcon {
+  width: 24px;
+  height: 24px;
+}
+
+.PiholeIcon.Off {
+  opacity: 0.5;
+}
+
+.Shield,
+.ShieldButton {
+  display: flex;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+}
+
+.ShieldButton {
+  cursor: pointer;
+  border-radius: 4px;
+  transition: transform 0.1s;
+}
+
+.ShieldButton:hover {
+  transform: scale(1.15);
+}
+
+.ShieldButton:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.ShieldButton.Busy {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+.Label {
+  font-size: 12px;
+  font-weight: 400;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+.Name {
+  font-size: 14px;
+  font-weight: 400;
+  opacity: 0.8;
+  max-width: 10em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.Value {
+  font-size: 16px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.Error {
+  grid-column: span 3;
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+@media (min-width: 900px) {
+  .PiholeWidget {
+    display: grid;
+  }
+}

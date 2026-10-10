@@ -1,4 +1,5 @@
 import { WeatherData } from '../types';
+import { PiholeInstance } from './Pihole';
 
 export interface WeatherForm {
   WEATHER_API_KEY: string;
@@ -6,6 +7,12 @@ export interface WeatherForm {
   long: number;
   isCelsius: boolean;
   weatherData: WeatherData;
+}
+
+export interface PiholeForm {
+  piholes: PiholeInstance[];
+  PIHOLE_SECRETS: Record<string, string>;
+  piholeDisableSeconds: number;
 }
 
 export interface GeneralForm {

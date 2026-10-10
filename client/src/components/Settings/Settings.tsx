@@ -12,6 +12,7 @@ import { Container } from '../UI';
 import { GeneralSettings } from './GeneralSettings/GeneralSettings';
 import { UISettings } from './UISettings/UISettings';
 import { WeatherSettings } from './WeatherSettings/WeatherSettings';
+import { PiholeSettings } from './PiholeSettings/PiholeSettings';
 import { DockerSettings } from './DockerSettings/DockerSettings';
 import { Themer } from './Themer/Themer';
 import { AppDetails } from './AppDetails/AppDetails';
@@ -55,6 +56,12 @@ export const Settings = (): JSX.Element => {
               Weather
             </NavLink>
             <NavLink
+              to="/settings/pihole"
+              className={navLinkClass}
+            >
+              Pi-hole
+            </NavLink>
+            <NavLink
               to="/settings/docker"
               className={navLinkClass}
             >
@@ -87,6 +94,7 @@ export const Settings = (): JSX.Element => {
               <Route path="/app" element={<GeneralSettings />} />
               <Route path="/ui" element={<UISettings />} />
               <Route path="/weather" element={<WeatherSettings />} />
+              <Route path="/pihole" element={<PiholeSettings />} />
               <Route path="/docker" element={<DockerSettings />} />
               <Route path="/theme" element={<Themer />} />
 	      <Route path="/css" element={<StyleSettings />} />

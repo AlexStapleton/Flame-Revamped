@@ -10,6 +10,7 @@ import classes from './Header.module.css';
 
 // Components
 import { WeatherWidget } from '../../Widgets/WeatherWidget/WeatherWidget';
+import { PiholeWidget } from '../../Widgets/PiholeWidget/PiholeWidget';
 
 // Utils
 import { getDateTime } from './functions/getDateTime';
@@ -45,7 +46,10 @@ export const Header = (): JSX.Element => {
       {!hideHeader && (
         <span className={classes.HeaderMain}>
           <h1>{greeting}</h1>
-          <WeatherWidget />
+          <span className={classes.HeaderWidgets}>
+            <PiholeWidget />
+            <WeatherWidget />
+          </span>
         </span>
       )}
     </header>
