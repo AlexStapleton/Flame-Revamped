@@ -38,6 +38,7 @@ export const AppDetails = (): JSX.Element => {
       return `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/package.json`;
     }, [localData.owner, localData.repo, localData.name, localData.branches?.dev, localData.branches?.stable]);
    
+  // The remote changelog is fetched through the server (cached), not from GitHub directly.
   const tryLoadRemoteChangelog = async (rawUrl?: string) => {
     if (!rawUrl) return;
   
@@ -46,9 +47,10 @@ export const AppDetails = (): JSX.Element => {
     setChangelog('Loading...');
   
     try {
-      const res = await fetch(rawUrl, { cache: 'no-store' });
+      const res = await fetch('/api/version/latest/changelog', { headers: applyAuth() });
       if (!res.ok) throw new Error('bad status');
-      const txt = (await res.text()).trim();
+      const body = await res.json();
+      const txt = String(body?.data?.changelog ?? '').trim();
       if (txt) {
         setChangelog(txt);
         return;

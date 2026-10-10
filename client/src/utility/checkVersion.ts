@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { applyAuth } from './applyAuth';
 import { store } from '../store/store';
 import { createNotification } from '../store/action-creators';
 
@@ -49,16 +49,17 @@ async function getLocalAppInfo(): Promise<AppInfo> {
   }
 }
 
-function parseRemoteVersion(raw: string): string | null {
-  // JSON => version:
-  try {
-    const obj = JSON.parse(raw);
-    return extractCoreVersion(obj?.version ?? null);
-  } catch {
-    // .env => VITE_APP_VERSION=...
-    const m = raw.match(/^\s*VITE_APP_VERSION\s*=\s*["']?([0-9A-Za-z.\-_]+)["']?\s*$/m);
-    return extractCoreVersion(m ? m[1] : null);
-  }
+type LatestInfo = { remoteVersion: string; remoteUrl: string; isDefault: boolean };
+
+// The remote lookup happens on the server (GET /api/version/latest, cached) so the
+// browser never contacts the remote host directly.
+async function getLatestInfo(isForced: boolean): Promise<LatestInfo> {
+  const res = await fetch(`/api/version/latest${isForced ? '?force=1' : ''}`, { headers: applyAuth() });
+  if (!res.ok) throw new Error('Update check failed');
+  const body = await res.json();
+  const d = body?.data;
+  if (!body?.success || !d || typeof d.remoteVersion !== 'string') throw new Error('Update check failed');
+  return d as LatestInfo;
 }
 
 // https://github.com/<owner>/<repo> => raw GH URL
@@ -81,7 +82,9 @@ function deriveGithubHome(remoteUrl: string | undefined): string | undefined {
 
 export async function checkVersion(
   isForced: boolean = false,
-  urlOverride?: string,   // custom URL ??
+  // Ignored: the server decides the remote URL from its saved config
+  // (useDefaults/updateUrl). Kept so existing call sites keep compiling.
+  _urlOverride?: string,
   showNotifications: boolean = true
 ): Promise<VersionStatus> {
   const { name: pkgName, version: localVersionMaybe, owner, repo, branches } = await getLocalAppInfo();
@@ -94,36 +97,23 @@ export async function checkVersion(
     : (branches?.stable || 'main');
 
   const defaults = {
-    defaultUrl:  `https://raw.githubusercontent.com/${ownerRepo}/${branch}/package.json`,
     changelog:   `https://github.com/${ownerRepo}/blob/${branch}/CHANGELOG.md`,
     changelogRaw:`https://raw.githubusercontent.com/${ownerRepo}/${branch}/CHANGELOG.md`,
   };
 
-  const remoteUrl = urlOverride ?? defaults.defaultUrl;
-
-  // normalize
-  const normalize = (u?: string) => {
-    if (!u) return '';
-    try {
-      const x = new URL(u);
-      return x.origin + x.pathname.replace(/\/+$/, '');
-    } catch {
-      return u.replace(/\/+$/, '');
-    }
-  };
-  const isDefault = normalize(remoteUrl) === normalize(defaults.defaultUrl);
-
-  // link target => custom => repo home | tuna => hardcoded
-  const customLink = deriveGithubHome(remoteUrl);
-  const linkForUpdate = isDefault ? defaults.changelog : customLink;
-
-
-  // RAW changelog
-  const changelogRawUrl = isDefault ? defaults.changelogRaw : undefined;
-
   try {
-    const remoteRes = await axios.get(remoteUrl, { transformResponse: [(d) => d] });
-    const remoteVersion = parseRemoteVersion(remoteRes.data);
+    const latest = await getLatestInfo(isForced);
+    const remoteUrl = latest.remoteUrl;
+    const isDefault = latest.isDefault;
+
+    // link target => custom => repo home | default => hardcoded
+    const customLink = deriveGithubHome(remoteUrl);
+    const linkForUpdate = isDefault ? defaults.changelog : customLink;
+
+    // Signals that a remote changelog is available (fetched via the server).
+    const changelogRawUrl = isDefault ? defaults.changelogRaw : undefined;
+
+    const remoteVersion = extractCoreVersion(latest.remoteVersion);
     const localVersionRaw = typeof localVersionMaybe === 'string' ? localVersionMaybe : undefined;
     const localVersion = extractCoreVersion(localVersionRaw) || undefined;
 
