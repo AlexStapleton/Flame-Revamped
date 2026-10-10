@@ -56,3 +56,28 @@ Unused / stale (checked by grepping `client/src`): `react-jwt` (0 imports), `cro
 
 ## 5. How each PR gets checked
 Full server test suite and `npm run build` in the client before every push. Then a manual `docker-publish` run with the `:dev` tag for you to test (never `latest` or a version tag). I won't merge anything without your go-ahead.
+
+## 6. Outcome (2026-10-10, all nine upgrades)
+
+Alex chose "all". Everything ships on one branch, `claude/modernize-deps-5x10h6`, as PR #25 with one commit per upgrade. Cloud sessions can only push their own work branch, so separate PRs weren't possible. Each commit can be reverted on its own.
+
+| # | Upgrade | Result |
+|---|---|---|
+| A | Safe bumps, unused packages removed, nodemon → `node --watch` | Done. |
+| B1 | umzug → `db/migrator.js` | Done. Uses the same `SequelizeMeta` table and DDL. Checked both directions against umzug 3.8.3, so going back to v1.8.0 is safe. Server audit is now 0. |
+| B2 | Node 24 (Docker + CI) | Done. `engines` is `>=22.12.0`. The multiarch image now compiles sqlite3 with node-gyp directly (npm 11 deprecates `--build-from-source`). |
+| B3 | vite-plugin-compression2 | Done. The .gz/.br output is byte-for-byte the same size. |
+| C4 | @redux-devtools/extension 4 | Done. |
+| C6 | axios → fetch | Done on both sides. The Docker unix socket uses `node:http`. Behavior change: HTTP(S)_PROXY needs `NODE_USE_ENV_PROXY=1`. |
+| C1 | Vite 8 / plugin-react 6 / svgr 5 | Done. `codeSplitting` groups with priorities, and dnd-kit is still lazy for guests. Build time 3.4 s → 1.4 s. First load 103.0 → 106.0 KB gz, 4 → 12 files. |
+| C2 | @kubernetes/client-node 2 | Done, and it **fixes a bug**: k8s discovery had been broken since client-node 1.x (`res.body.items`). |
+| C3 | dotenv 18; docker-secret | dotenv 18 is done. docker-secret 2.x ships babel-jest as a runtime dependency (~900 packages, 11 audit findings), so it is replaced with ~15 lines in `utils/init/initDockerSecrets.js`. |
+| C5 | TypeScript 7 | Done. Adds `npm run typecheck`. Errors 123 → 11. The 11 left are real code issues (see CHANGELOG). |
+
+Final checks, on clean installs under both Node 22.22/npm 10.9 and Node 24.21/npm 11.19:
+- Server tests: 165/165 on both.
+- `npm audit` is 0 on the server and 0 on the client.
+- `vite build` succeeds.
+- Chromium against a server built from the branch: login (bad and good password), app create with JSON and with an icon upload, custom CSS round trip, dnd-kit lazy for guests.
+
+The only build-log deprecation warnings left are `dottie` (Sequelize) and `prebuild-install` (sqlite3), as planned.
