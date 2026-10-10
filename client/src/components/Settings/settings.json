@@ -21,6 +21,11 @@
       "authRequired": true
     },
     {
+      "name": "Pi-hole",
+      "dest": "/settings/pihole",
+      "authRequired": true
+    },
+    {
       "name": "Docker",
       "dest": "/settings/docker",
       "authRequired": true

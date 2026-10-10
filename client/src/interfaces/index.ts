@@ -2,6 +2,7 @@ export * from './App';
 export * from './Theme';
 export * from './Api';
 export * from './Weather';
+export * from './Pihole';
 export * from './Bookmark';
 export * from './Category';
 export * from './Notification';

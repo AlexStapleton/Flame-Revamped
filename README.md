@@ -19,6 +19,7 @@ Flame is easy to setup and use. With built-in editors, it allows you to setup yo
 - 🔑 Authentication system to protect your settings, apps and bookmarks
 - 🔨 Dozens of options to customize Flame interface to your needs, including support for custom CSS, 15 built-in color themes and custom theme builder
 - ☀️ Weather widget with current temperature, cloud coverage and animated weather status
+- 🛡️ Pi-hole widget with today's queries, blocked queries, blocklist size and blocking status (Pi-hole v6)
 - 🐳 Docker integration to automatically pick and add apps based on their labels
 
 ## Installation
@@ -180,6 +181,16 @@ For list of supported search engines, shortcuts and more about searching functio
    > Free plan allows for 1M calls per month. Flame is making less then 3K API calls per month.
 2. Get lat/long for your location. You can get them from [latlong.net](https://www.latlong.net/convert-address-to-lat-long.html).
 3. Enter and save data. Weather widget will now update and should be visible on Home page.
+
+### Setting up the Pi-hole widget
+
+Needs Pi-hole v6 or newer.
+
+1. In Pi-hole, open Settings > Web interface / API, switch to Expert mode if needed, and use "Configure app password" to create an app password. Skip this if your Pi-hole has no password.
+2. In Flame, open Settings > Pi-hole and enter the Pi-hole address as Flame's server reaches it (for example `http://192.168.1.2` or `http://pihole:80` inside a Docker network) and the app password.
+3. Save. Flame tests the connection and shows the result. The widget appears in the header on screens 900px and wider.
+
+Flame's server talks to Pi-hole and keeps one Pi-hole session open, so the password never reaches the browser. The password is hidden from visitors who aren't logged in and is left out of backups. Visitors see "Pi-hole unreachable" when it can't be reached; logged-in admins see the reason when they hover over it. For an `https://` address with Pi-hole's built-in self-signed certificate, set "Skip certificate check" to True, or use the `http://` address instead.
 
 ### Docker integration
 

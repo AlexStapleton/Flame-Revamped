@@ -1,3 +1,12 @@
+### Unreleased
+
+**Changes**
+- New Pi-hole widget in the header. It shows today's queries, blocked queries and percent blocked, the blocklist size, and whether blocking is on. Set it up under Settings > Pi-hole with the Pi-hole address and an app password. It needs Pi-hole v6.
+- Flame's server makes the Pi-hole calls through `GET /api/pihole` and keeps one Pi-hole session open, re-logging in only when Pi-hole expires it. Results are cached for 30 seconds, so many open tabs still mean one call to Pi-hole. `GET /api/pihole/update` (admin only) skips the cache and is used by the settings page to test the connection.
+- The Pi-hole app password is stored in `config.json` like the weather key. It is masked for visitors who aren't logged in, left out of backup exports, and kept when a backup is restored. The Pi-hole address is masked for visitors too. Error details (which can name the Pi-hole host) are only shown to the admin.
+- An optional "Skip certificate check" setting allows an `https://` Pi-hole with its built-in self-signed certificate.
+- The CSP is unchanged, since the browser only talks to Flame.
+
 ### v1.8.1 (2026-10-10)
 Dependency modernization and small fixes. The full plan and the source of each build warning are in [docs/DEPENDENCY_MODERNIZATION.md](docs/DEPENDENCY_MODERNIZATION.md).
 

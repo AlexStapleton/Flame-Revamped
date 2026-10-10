@@ -8,6 +8,12 @@ export interface WeatherForm {
   weatherData: WeatherData;
 }
 
+export interface PiholeForm {
+  piholeUrl: string;
+  PIHOLE_PASSWORD: string;
+  piholeSkipTlsVerify: boolean;
+}
+
 export interface GeneralForm {
   defaultSearchProvider: string;
   secondarySearchProvider: string;

@@ -47,4 +47,9 @@ export interface Config {
   // (>= 900px). Narrower breakpoints ramp down, capped at these values.
   appsColumns: number;
   bookmarksColumns: number;
+  // Pi-hole widget. For guests the server masks piholeUrl and
+  // PIHOLE_PASSWORD to 'true' / '' (configured or not).
+  piholeUrl: string;
+  PIHOLE_PASSWORD: string;
+  piholeSkipTlsVerify: boolean;
 }

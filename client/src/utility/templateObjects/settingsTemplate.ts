@@ -4,6 +4,7 @@ import {
   GeneralForm,
   ThemeSettingsForm,
   WeatherForm,
+  PiholeForm,
 } from '../../interfaces';
 
 export const uiSettingsTemplate: UISettingsForm = {
@@ -53,4 +54,10 @@ export const dockerSettingsTemplate: DockerSettingsForm = {
 
 export const themeSettingsTemplate: ThemeSettingsForm = {
   defaultTheme: 'tron',
+};
+
+export const piholeSettingsTemplate: PiholeForm = {
+  piholeUrl: '',
+  PIHOLE_PASSWORD: '',
+  piholeSkipTlsVerify: false,
 };
