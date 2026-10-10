@@ -37,22 +37,87 @@ export const WeatherWidget = (): JSX.Element => {
       .catch((err) => console.log(err));
   }, []);
 
-  // Open socket for data updates
+  // Socket for data updates. Reconnects with exponential backoff (1s, 2s, 4s...
+  // capped at 60s) after the server restarts or a proxy drops the idle socket.
+  // Does not reconnect while the tab is hidden; resumes on visibilitychange.
   useEffect(() => {
     const socketProtocol =
       document.location.protocol === 'http:' ? 'ws:' : 'wss:';
     const socketAddress = `${socketProtocol}//${window.location.host}/socket`;
-    const webSocketClient = new WebSocket(socketAddress);
 
-    webSocketClient.onmessage = (e) => {
-      const data = JSON.parse(e.data);
-      setWeather({
-        ...weather,
-        ...data,
-      });
+    const BASE_DELAY_MS = 1000;
+    const MAX_DELAY_MS = 60000;
+
+    let socket: WebSocket | null = null;
+    let retryTimer: number | null = null;
+    let attempts = 0;
+    let unmounted = false;
+
+    const clearRetry = () => {
+      if (retryTimer !== null) {
+        window.clearTimeout(retryTimer);
+        retryTimer = null;
+      }
     };
 
-    return () => webSocketClient.close();
+    const scheduleReconnect = () => {
+      if (unmounted || retryTimer !== null) return;
+      if (document.visibilityState === 'hidden') return;
+      const delay = Math.min(BASE_DELAY_MS * 2 ** attempts, MAX_DELAY_MS);
+      attempts++;
+      retryTimer = window.setTimeout(() => {
+        retryTimer = null;
+        // Tab went hidden while waiting: leave it to visibilitychange.
+        if (document.visibilityState === 'hidden') return;
+        connect();
+      }, delay);
+    };
+
+    const connect = () => {
+      if (unmounted || socket) return;
+      const client = new WebSocket(socketAddress);
+      socket = client;
+
+      client.onopen = () => {
+        attempts = 0;
+      };
+
+      client.onmessage = (e) => {
+        const data = JSON.parse(e.data);
+        setWeather((prev) => ({
+          ...prev,
+          ...data,
+        }));
+      };
+
+      client.onclose = () => {
+        if (socket === client) socket = null;
+        scheduleReconnect();
+      };
+    };
+
+    const onVisibilityChange = () => {
+      if (unmounted || document.visibilityState !== 'visible') return;
+      if (socket) return;
+      // Visible again: reconnect now rather than waiting out the backoff.
+      clearRetry();
+      connect();
+    };
+
+    connect();
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      unmounted = true;
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      clearRetry();
+      if (socket) {
+        const client = socket;
+        socket = null;
+        client.onclose = null;
+        client.close();
+      }
+    };
   }, []);
 
   return (

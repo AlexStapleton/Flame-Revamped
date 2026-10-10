@@ -26,12 +26,18 @@ import { Header } from './Header/Header';
 import { escapeRegex } from '../../utility';
 
 export const Home = (): JSX.Element => {
-  const {
-    apps: { apps, loading: appsLoading },
-    bookmarks: { categories, loading: bookmarksLoading },
-    config: { config },
-    auth: { isAuthenticated },
-  } = useSelector((state: State) => state);
+  // Narrow selectors: subscribing to the whole store re-rendered the homescreen
+  // on every unrelated state change (notifications, theme, settings, etc.).
+  const apps = useSelector((state: State) => state.apps.apps);
+  const appsLoading = useSelector((state: State) => state.apps.loading);
+  const categories = useSelector((state: State) => state.bookmarks.categories);
+  const bookmarksLoading = useSelector(
+    (state: State) => state.bookmarks.loading
+  );
+  const config = useSelector((state: State) => state.config.config);
+  const isAuthenticated = useSelector(
+    (state: State) => state.auth.isAuthenticated
+  );
 
   const dispatch = useDispatch();
   const { getApps, getCategories } = bindActionCreators(
