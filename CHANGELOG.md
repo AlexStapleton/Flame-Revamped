@@ -1,3 +1,14 @@
+### Unreleased
+Docker image CVE cleanup. Details, scan results and what each CVE could reach are in [docs/IMAGE_CVE_REVIEW.md](docs/IMAGE_CVE_REVIEW.md).
+
+**Upgrade notes**
+- The published image now runs on Alpine (`node:24-alpine`) instead of Debian 12 (`node:24-bookworm-slim`). Pulling the new image is all that's needed. The `node` user is still uid 1000, so existing data volumes keep working, and `curl` is still in the image for compose healthchecks. The container has `sh` but no `bash`.
+
+**Changes**
+- The image's server build and runtime stages move to `node:24-alpine`. The v1.8.1 image had about 350 Debian package CVEs (5 critical), almost all without a Debian fix and none reachable by Flame. The Alpine base has one, which `apk upgrade` fixes at build time.
+- npm, npx, corepack and yarn are removed from the runtime image. Flame starts with `node server.js` and never uses them, and npm's bundled dependencies (undici, tar, brace-expansion, ip-address and others) were the source of all 21 Node.js CVEs in the scan.
+- The runtime image no longer installs the system SQLite library, which was unused: the sqlite3 module uses its own bundled SQLite. The single-arch `.docker/Dockerfile` also drops the unused `jq` and `sqlite` CLI.
+
 ### v1.8.1 (2026-10-10)
 Dependency modernization and small fixes. The full plan and the source of each build warning are in [docs/DEPENDENCY_MODERNIZATION.md](docs/DEPENDENCY_MODERNIZATION.md).
 
