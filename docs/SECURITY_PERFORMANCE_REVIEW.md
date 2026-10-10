@@ -17,12 +17,55 @@ Analysed commit `77d1d4d` (v1.7.1) on 2026-10-10.
 
 | ID | Finding | Status |
 |---|---|---|
-| S1 | SVG icon XSS via `external-svg-loader` | _in progress_ |
-| S2 | `javascript://` URLs via search-bar redirect | _in progress_ |
-| S3 / P2 | `/health` log scan: spoofable, leaks the log, slow | _in progress_ |
-| S7 | Dependency advisories | _in progress_ |
+| S1 | SVG icon XSS via `external-svg-loader` | **Fixed** |
+| S2 | `javascript://` URLs via search-bar redirect | **Fixed** |
+| S3 / P2 | `/health` log scan: spoofable, leaks the log, slow | **Fixed** |
+| S7 | Dependency advisories | **Mostly fixed** (see below) |
 | S4, S5, S6, S8, S9 | Remaining security items | Open |
 | P1, P3–P6, B1–B5 | Performance items and functional bugs | Open |
+
+### What changed and how it was verified
+
+**S1: SVG icon XSS.**
+
+- `external-svg-loader` is removed. It is replaced by `client/src/components/UI/Icons/SafeSvgIcon/SafeSvgIcon.tsx`, which fetches each SVG once per URL, sanitizes it with DOMPurify (`RETURN_DOM`, so the markup is never re-serialized and re-parsed), and inserts only the sanitized root `<svg>`.
+- **Forbidden tags:** `foreignObject`, `script`, `iframe`, `use`, `a`, `style`, `animate*`, `set`.
+- **Forbidden attributes:** `href`, `xlink:href`.
+- **Kept on purpose:** inline SVG with `fill="var(--color-primary)"`, so icon theming still works.
+- **Trade-off:** third-party SVGs that rely on `<use>`, an inner `<style>` or `<a>` lose those parts.
+- **Verified end to end in headless Chromium.** I uploaded the PoC SVG as an app icon on a running server.
+  - With the v1.7.1 client build, the page title became `PWNED:<real JWT>`.
+  - With the patched build, the title is unchanged, there are 0 `iframe` and 0 `foreignObject` elements, and benign SVG icons still render.
+
+**S2: `javascript://` URLs.**
+
+- **The check.** `utils/urlSafety.js` and `client/src/utility/urlSafety.ts` (duplicates of each other) implement `isDangerousUrl`. It normalizes the URL the way browsers do (strips leading C0 controls and spaces, removes tab, CR and LF anywhere, lowercases) and denies the schemes `javascript`, `vbscript`, `data`, `blob` and `file`.
+- **Why a denylist.** I chose it over an allowlist so that custom schemes such as `steam://`, `ssh://`, `vnc://` and `mailto:` keep working.
+- **Where it is enforced:**
+  - App and bookmark create/update return 400.
+  - Docker and Kubernetes discovery skip the app and log a warning.
+  - `validateBackup` rejects the import.
+  - On the client, `urlParser` returns `#` and `redirectUrl` does nothing.
+- **Verified end to end.** `javascript://%0a…` and `JaVa<TAB>ScRiPt:…` are both rejected with `400 Invalid URL scheme`. Unit tests are in `test/urlSafety.test.js`.
+- **Existing data.** Dangerous URLs already in the database are not migrated. The client guards make them inert.
+
+**S3/P2: `/health`.**
+
+- `/health` now checks only that `data/config.json` exists and that `SELECT 1` succeeds, with a 2 s timeout.
+- It never reads `access.log`, `?debug` was removed, it sends `Cache-Control: no-store`, and its error strings are generic.
+- **Verified on a live server.** After six requests to `/ERROR`, `/health?debug=true` still returns `200 {"status":"healthy","errors":[]}`. Unit tests are in `test/health.test.js`.
+
+**S7: dependencies.**
+
+- `concurrently` and `@types/express` moved to `devDependencies`.
+- I ran `npm audit fix` (without `--force`) on the server and the client, which brought `react-router` to 7.18.4.
+- **Server:** advisories went from 19 (3 critical, 8 high) to 4 moderate.
+- **Client:** advisories went from 6 (4 high) to 1 low.
+- **Still open (each needs a decision):**
+  - **Server:** 4 moderate advisories in `sprintf-js`, through `umzug → @rushstack/ts-command-line → argparse`. The only fix npm offers is a major downgrade of umzug, which runs the migrations.
+  - **Client:** `esbuild` (low), which only affects the dev server on Windows.
+
+**Test suite.** 71/71 pass (43 existing plus 28 new). The client build succeeds.
 
 ---
 
