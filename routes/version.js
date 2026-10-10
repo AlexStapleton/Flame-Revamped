@@ -16,11 +16,16 @@ function tryReadJSON(p) {
 }
 
 // Local identity + repo coordinates (package.json, versionCheck.json, env overrides).
-function getLocalInfo() {
+// package.json and versionCheck.json only change on deploy, so the result is
+// memoized after package.json parses. A failed package.json read is not cached.
+let cachedLocalInfo = null;
+
+function readLocalInfo() {
   const root = path.resolve(__dirname, '..');
 
   // package.json
-  const pkg = tryReadJSON(path.join(root, 'package.json')) || {};
+  const pkgRaw = tryReadJSON(path.join(root, 'package.json'));
+  const pkg = pkgRaw || {};
   const name = typeof pkg?.name === 'string' ? pkg.name : null;
   const version = typeof pkg?.version === 'string' ? pkg.version : null;
 
@@ -38,7 +43,17 @@ function getLocalInfo() {
     dev:    process.env.BRANCH_DEV    || cfg?.branches?.dev    || 'main',
   };
 
-  return { name, version, owner, repo, branches };
+  return { info: { name, version, owner, repo, branches }, cacheable: pkgRaw !== null };
+}
+
+function getLocalInfo() {
+  if (!cachedLocalInfo) {
+    const { info, cacheable } = readLocalInfo();
+    if (!cacheable) return info;
+    cachedLocalInfo = info;
+  }
+  // Hand out a copy so callers cannot mutate the memoized object.
+  return { ...cachedLocalInfo, branches: { ...cachedLocalInfo.branches } };
 }
 
 router.get('/', (_req, res) => {
