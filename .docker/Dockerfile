@@ -22,6 +22,7 @@ RUN apk add --no-cache curl jq sqlite
 # server code + production node_modules
 COPY --from=serverbuilder /app/node_modules ./node_modules
 COPY package*.json ./
+COPY CHANGELOG.md ./
 COPY server.js api.js Socket.js Sockets.js ./
 COPY controllers ./controllers
 COPY db ./db

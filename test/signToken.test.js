@@ -3,6 +3,7 @@ const assert = require('node:assert');
 const jwt = require('jsonwebtoken');
 
 process.env.SECRET = 'test-secret';
+process.env.PASSWORD = 'pw-A';
 const signToken = require('../utils/signToken');
 
 const ttlOf = (token) => {

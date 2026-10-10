@@ -16,13 +16,42 @@ const api = express();
 // set TRUST_PROXY=1 (or the hop count) when running behind a reverse proxy.
 api.set('trust proxy', Number(process.env.TRUST_PROXY) || false);
 
-// Security headers (clickjacking protection, nosniff, HSTS, etc.). CSP is left
-// off because Flame loads app/bookmark icons from arbitrary user-supplied URLs
-// and supports custom CSS/themes — a strict CSP would break those. COEP is off
-// to avoid blocking those cross-origin icons.
+// Content-Security-Policy: defence-in-depth against XSS. Scripts, frames and
+// objects are locked down, while images, styles, fonts and network requests stay
+// open because Flame loads app/bookmark icons from arbitrary user-supplied URLs
+// (http and https, incl. LAN hosts), fetches external SVG icons, checks GitHub
+// for updates, and supports custom CSS that may @import remote fonts. Set
+// CSP=off to disable it if a custom setup breaks. Search-bar navigation uses
+// location/window.open (not <form>), so form-action stays 'self'.
+const cspDisabled = String(process.env.CSP || '').toLowerCase() === 'off';
+if (cspDisabled) {
+  console.warn(
+    'WARNING: CSP=off - Content-Security-Policy is DISABLED. This removes a layer of XSS protection.'
+  );
+}
+const cspDirectives = {
+  defaultSrc: ["'self'"],
+  scriptSrc: ["'self'"],
+  objectSrc: ["'none'"],
+  frameSrc: ["'none'"],
+  baseUri: ["'self'"],
+  formAction: ["'self'"],
+  frameAncestors: ["'self'"],
+  imgSrc: ['*', 'data:', 'blob:'],
+  styleSrc: ["'self'", "'unsafe-inline'", 'https:'],
+  fontSrc: ["'self'", 'data:', 'https:'],
+  connectSrc: ["'self'", 'https:', 'http:', 'ws:', 'wss:'],
+  workerSrc: ["'self'", 'blob:'],
+  manifestSrc: ["'self'"],
+};
+
+// Other security headers (clickjacking protection, nosniff, HSTS, etc.). COEP is
+// off to avoid blocking cross-origin icons.
 api.use(
   helmet({
-    contentSecurityPolicy: false,
+    contentSecurityPolicy: cspDisabled
+      ? false
+      : { useDefaults: false, directives: cspDirectives },
     crossOriginEmbedderPolicy: false,
   })
 );
@@ -31,7 +60,7 @@ api.use(
 // on first load since the client bundle and @mdi icon data are sizable.
 api.use(compression());
 
-// Access logging — enables fail2ban and the /health log scan. Resolves to
+// Access logging — enables fail2ban. Resolves to
 // /app/log/access.log inside the container. Health checks are skipped to avoid
 // flooding the log.
 const logDir = join(process.cwd(), 'log');
@@ -89,8 +118,12 @@ api.use(
   })
 );
 
-// Body parser
-api.use(express.json({ limit: '10mb' }));
+// Body parsers. Only backup import needs a large body, so it gets a 10 MB
+// parser mounted first. body-parser skips requests already parsed (req._body),
+// so the global parser below does not re-check import bodies against 100 kb.
+// Every other route, including unauthenticated ones, is capped at 100 kb.
+api.use('/api/backup/import', express.json({ limit: '10mb' }));
+api.use(express.json({ limit: '100kb' }));
 
 // Link controllers with routes
 api.use('/api/apps', require('./routes/apps'));

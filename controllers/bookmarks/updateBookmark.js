@@ -1,6 +1,7 @@
 const asyncWrapper = require('../../middleware/asyncWrapper');
 const ErrorResponse = require('../../utils/ErrorResponse');
 const Bookmark = require('../../models/Bookmark');
+const { isDangerousUrl } = require('../../utils/urlSafety');
 
 // @desc      Update bookmark
 // @route     PUT /api/bookmarks/:id
@@ -17,6 +18,10 @@ const updateBookmark = asyncWrapper(async (req, res, next) => {
         404
       )
     );
+  }
+
+  if (isDangerousUrl(req.body.url)) {
+    return next(new ErrorResponse('Invalid URL scheme', 400));
   }
 
   let body = {

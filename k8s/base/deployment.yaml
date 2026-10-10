@@ -14,7 +14,12 @@ spec:
     spec:
       serviceAccountName: flame
       securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
         fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: flame
           image: shokohsc/flame
@@ -22,7 +27,42 @@ spec:
             - name: http
               containerPort: 5005
               protocol: TCP
+          securityContext:
+            allowPrivilegeEscalation: false
+            # Must stay false: the app rewrites public/flame.css at runtime
+            # when custom CSS is saved, so /app/public has to be writable.
+            # TODO: move public/flame.css to a dedicated volume and set this
+            # to true.
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 50m
+              memory: 96Mi
+            limits:
+              memory: 256Mi
+          # /app/data holds config, the SQLite DB, uploads and backups. This
+          # emptyDir is ephemeral: data is lost when the pod is replaced.
+          # Replace it with a PersistentVolumeClaim for real deployments.
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+            - name: log
+              mountPath: /app/log
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 30
+            failureThreshold: 3
           readinessProbe:
             httpGet:
-              path: /
+              path: /health
               port: http
+      volumes:
+        - name: data
+          emptyDir: {}
+        - name: log
+          emptyDir: {}

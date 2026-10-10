@@ -1,6 +1,7 @@
 const App = require('../../../models/App');
 const Logger = require('../../../utils/Logger');
 const logger = new Logger();
+const { isDangerousUrl } = require('../../../utils/urlSafety');
 const loadConfig = require('../../../utils/loadConfig');
 
 const useKubernetes = async () => {
@@ -36,6 +37,16 @@ const useKubernetes = async () => {
             'flame.pawelmalak/url' in annotations &&
             /^app/.test(annotations['flame.pawelmalak/type'])
         )
+        .filter((annotations) => {
+          if (isDangerousUrl(annotations['flame.pawelmalak/url'])) {
+            logger.log(
+              `Skipping Kubernetes app "${annotations['flame.pawelmalak/name']}": unsafe URL scheme`,
+              'WARN'
+            );
+            return false;
+          }
+          return true;
+        })
         .map((annotations) => ({
           name: annotations['flame.pawelmalak/name'],
           url: annotations['flame.pawelmalak/url'],

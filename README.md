@@ -91,12 +91,17 @@ services:
     environment:
       - PASSWORD=changeme
       # - WEATHER_CACHE_HOURS=6  #  optional to cut down calls to weather api
+      # - CSP=off  #  optional: disable the Content-Security-Policy if custom CSS/setups break
     healthcheck:
       test: ["CMD", "curl", "-fs", "http://localhost:5005/health"]
       interval: 60s
       timeout: 10s
       retries: 3
 ```
+
+##### Content-Security-Policy
+
+Flame sends a Content-Security-Policy that blocks injected scripts, frames and objects while still allowing icons and custom CSS from anywhere. If a custom setup breaks under it, set `CSP=off` to disable it (a warning is logged at startup).
 
 ##### Docker Secrets
 
@@ -223,6 +228,25 @@ sudo service docker restart
 ```shell
 curl http://${IP}:${PORT}/version
 ```
+
+#### Docker socket security
+
+Mounting `/var/run/docker.sock` into a container is root-equivalent on the host, since anyone who can reach the socket can start privileged containers. Prefer a read-only socket proxy that only exposes the endpoints Flame needs:
+
+```yml
+services:
+  docker-socket-proxy:
+    image: tecnativa/docker-socket-proxy:latest
+    environment:
+      - CONTAINERS=1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+```
+
+Then set Flame's **Docker host** (Settings > Docker) to `docker-socket-proxy:2375`.
+
+- If you mount the socket directly instead, Flame runs as the non-root user `node`. It needs the socket's group to read it: `group_add: ["<docker gid>"]` (find the gid with `getent group docker`).
+- Remote hosts can be given with a scheme, e.g. `https://host:2376`. Client-certificate TLS is not supported, so put a TLS-terminating proxy in front of the daemon.
 
 ### Kubernetes integration
 

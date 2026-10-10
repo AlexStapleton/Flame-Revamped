@@ -1,49 +1,57 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
+const { sequelize } = require('../db');
 
 const router = express.Router();
 
-const LOG_PATH = '/app/log/access.log';
-const CONFIG_PATH = '/app/data/config.json';
-const DB_PATH = '/app/data/db.sqlite';
+const CONFIG_PATH = path.join(__dirname, '..', 'data', 'config.json');
+const DB_TIMEOUT_MS = 2000;
 
-router.get('/', async (req, res) => {
-  const debug = req.query.debug === 'true';
-  const errors = [];
-  let status = 'healthy';
+// Resolves when the check passes, rejects when it fails.
+const defaultCheckConfig = () => fs.promises.access(CONFIG_PATH, fs.constants.F_OK);
+const defaultCheckDb = () => sequelize.query('SELECT 1');
 
-  // 1. Check config.json exists
-  if (!fs.existsSync(CONFIG_PATH)) {
-    errors.push('Missing config.json');
-  }
+// Rejects if `promise` does not settle within `ms`. The timer is always cleared
+// so it never keeps the event loop alive.
+const withTimeout = (promise, ms) => {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error('timeout')), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+};
 
-  // 2. Check database exists
-  if (!fs.existsSync(DB_PATH)) {
-    errors.push('Missing SQLite DB');
-  }
+const createHealthHandler = ({
+  checkConfig = defaultCheckConfig,
+  checkDb = defaultCheckDb,
+  timeoutMs = DB_TIMEOUT_MS,
+} = {}) =>
+  async function health(req, res) {
+    const errors = [];
 
-  // 3. Optional: scan access.log for recent errors if it has been
-  //    bind-mounted in (e.g. for fail2ban). Missing log is not an error.
-  let recentErrors = [];
-  if (fs.existsSync(LOG_PATH)) {
-    const lines = fs.readFileSync(LOG_PATH, 'utf-8').split('\n').reverse().slice(0, 100);
-    recentErrors = lines.filter((line) => line.includes('ERROR') || line.includes('Failed'));
-    if (recentErrors.length >= 5) {
-      errors.push(`${recentErrors.length} recent error lines found`);
+    const [configResult, dbResult] = await Promise.allSettled([
+      Promise.resolve().then(() => checkConfig()),
+      withTimeout(Promise.resolve().then(() => checkDb()), timeoutMs),
+    ]);
+
+    if (configResult.status === 'rejected') {
+      errors.push('Missing config.json');
     }
-  }
+    if (dbResult.status === 'rejected') {
+      errors.push('Database unreachable');
+    }
 
-  if (errors.length > 0) {
-    status = 'unhealthy';
-  }
+    const healthy = errors.length === 0;
+    res.set('Cache-Control', 'no-store');
+    return res.status(healthy ? 200 : 503).json({
+      status: healthy ? 'healthy' : 'unhealthy',
+      errors,
+    });
+  };
 
-  const httpStatus = status === 'healthy' ? 200 : 503;
-  const body = { status, errors };
-  if (debug && recentErrors.length > 0) {
-    body.recentErrorLines = recentErrors;
-  }
-  return res.status(httpStatus).json(body);
-});
+router.get('/', createHealthHandler());
+
+router.createHealthHandler = createHealthHandler;
 
 module.exports = router;

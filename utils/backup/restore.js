@@ -9,6 +9,7 @@ const ErrorResponse = require('../ErrorResponse');
 const loadConfig = require('../loadConfig');
 const { SECRET_KEYS } = require('./secrets');
 const { buildBackup } = require('./serialize');
+const { pickKnownKeys } = require('../../controllers/config/updateConfig');
 
 const CSS_PATH = path.join(__dirname, '../../public/flame.css');
 const BACKUP_DIR = 'data/backups';
@@ -24,11 +25,12 @@ const writeSafetyBackup = async () => {
   return filePath;
 };
 
-// Merge imported config over current config.json, preserving live secrets (the
+// Merge imported config over current config.json (known keys only, same as
+// PUT /api/config), preserving live secrets (the
 // export omits them, so a naive merge would blank them out). Refresh the cache.
 const restoreConfig = async (importedConfig = {}) => {
   const current = await loadConfig();
-  const merged = { ...current, ...importedConfig };
+  const merged = { ...current, ...pickKnownKeys(current, importedConfig) };
   for (const key of SECRET_KEYS) merged[key] = current[key];
   new File('data/config.json').write(merged, true);
   loadConfig.setCache(merged);

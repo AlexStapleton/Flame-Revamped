@@ -1,15 +1,17 @@
 const asyncWrapper = require('../../middleware/asyncWrapper');
 const ErrorResponse = require('../../utils/ErrorResponse');
 const Bookmark = require('../../models/Bookmark');
+const { bookmarkVisibility } = require('../../utils/bookmarkVisibility');
 
 // @desc      Get single bookmark
 // @route     GET /api/bookmarks/:id
 // @access    Public
 const getSingleBookmark = asyncWrapper(async (req, res, next) => {
-  const visibility = req.isAuthenticated ? {} : { isPublic: true };
+  const { where, include } = bookmarkVisibility(req.isAuthenticated);
 
   const bookmark = await Bookmark.findOne({
-    where: { id: req.params.id, ...visibility },
+    where: { id: req.params.id, ...where },
+    include,
   });
 
   if (!bookmark) {

@@ -1,4 +1,4 @@
-const jwt = require('jsonwebtoken');
+const verifyToken = require('../utils/verifyToken');
 
 const auth = (req, res, next) => {
   const authHeader = req.header('Authorization-Flame');
@@ -11,7 +11,7 @@ const auth = (req, res, next) => {
 
   if (token) {
     try {
-      jwt.verify(token, process.env.SECRET);
+      verifyToken(token);
       tokenIsValid = true;
     } catch (err) {
       tokenIsValid = false;

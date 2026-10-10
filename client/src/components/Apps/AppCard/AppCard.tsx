@@ -1,6 +1,7 @@
 import { memo } from 'react';
 import classes from './AppCard.module.css';
 import { Icon } from '../../UI';
+import { SafeSvgIcon } from '../../UI/Icons/SafeSvgIcon/SafeSvgIcon';
 import {
   dashboardIconUrl,
   iconParser,
@@ -57,11 +58,7 @@ const AppCardComponent = ({ app }: Props): JSX.Element => {
 
     iconEl = (
       <div className={classes.CustomIcon}>
-        <svg
-          data-src={source}
-          fill="var(--color-primary)"
-          className={classes.CustomIcon}
-        ></svg>
+        <SafeSvgIcon src={source} className={classes.CustomIcon} />
       </div>
     );
   } else {
