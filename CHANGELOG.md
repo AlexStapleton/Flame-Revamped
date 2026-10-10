@@ -1,3 +1,7 @@
+### Unreleased
+- Security: auth tokens are now bound to the admin password (keyed `pwf` fingerprint claim) and the JWT algorithm is pinned to HS256, so changing `PASSWORD` invalidates every previously issued token.
+- Tokens issued before this change carry no fingerprint and are rejected once: existing sessions must log in again once after upgrading.
+
 ### v1.7.1 (2026-06-25)
 - Fixed mobile/touch dashboards being unscrollable: the homescreen app and bookmark grids set `touch-action: none` on every pinned card, so touching a card (which fills the single-column mobile viewport) gave the browser nowhere to start a scroll, and the `PointerSensor`'s 8px drag threshold turned any swipe into a reorder. Cards now use `touch-action: pan-y`, and the grids use a `MouseSensor` (desktop, unchanged 8px threshold) plus a `TouchSensor` with a 200ms press-and-hold activation. A quick swipe now scrolls; a press-and-hold then drag reorders — the standard mobile rearrange gesture. Desktop mouse/keyboard reordering is unchanged.
 

@@ -3,7 +3,9 @@ const assert = require('node:assert');
 const jwt = require('jsonwebtoken');
 
 process.env.SECRET = 'test-secret';
+process.env.PASSWORD = 'pw-A';
 const auth = require('../middleware/auth');
+const signToken = require('../utils/signToken');
 
 // Minimal req stub exposing the Authorization-Flame header the middleware reads.
 const runAuth = (headerValue) => {
@@ -19,7 +21,7 @@ const runAuth = (headerValue) => {
 };
 
 test('valid bearer token marks the request authenticated', () => {
-  const token = jwt.sign({ app: 'flame' }, process.env.SECRET);
+  const token = signToken();
   const { req, nextCalled } = runAuth(`Bearer ${token}`);
   assert.strictEqual(req.isAuthenticated, true);
   assert.ok(nextCalled, 'next() must be called');
