@@ -1,6 +1,7 @@
 const asyncWrapper = require('../../middleware/asyncWrapper');
 const App = require('../../models/App');
 const ErrorResponse = require('../../utils/ErrorResponse');
+const { redactAppForGuest } = require('../../utils/redactApp');
 
 // @desc      Get single app
 // @route     GET /api/apps/:id
@@ -23,7 +24,8 @@ const getSingleApp = asyncWrapper(async (req, res, next) => {
 
   res.status(200).json({
     success: true,
-    data: app,
+    // Status fields are admin-only — never expose infra health to guests.
+    data: req.isAuthenticated ? app : redactAppForGuest(app.get({ plain: true })),
   });
 });
 
