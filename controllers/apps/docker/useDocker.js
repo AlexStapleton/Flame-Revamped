@@ -1,5 +1,5 @@
 const App = require('../../../models/App');
-const axios = require('axios');
+const http = require('node:http');
 const Logger = require('../../../utils/Logger');
 const logger = new Logger();
 const { isDangerousUrl } = require('../../../utils/urlSafety');
@@ -37,6 +37,43 @@ const buildDockerRequest = (host) => {
   return { url: `http://${base}${query}` };
 };
 
+const DOCKER_TIMEOUT_MS = 10000;
+
+// GET a Docker API URL and parse the JSON body. Built-in fetch can't talk to a
+// unix socket, so the local socket goes through node:http; TCP hosts use fetch.
+// Rejects on non-2xx, like axios did.
+const dockerGet = async ({ url, socketPath }) => {
+  if (!socketPath) {
+    const res = await fetch(url, { signal: AbortSignal.timeout(DOCKER_TIMEOUT_MS) });
+    if (!res.ok) throw new Error(`Docker API responded with HTTP ${res.status}`);
+    return res.json();
+  }
+
+  const { pathname, search } = new URL(url);
+  return new Promise((resolve, reject) => {
+    const req = http.get(
+      { socketPath, path: pathname + search, timeout: DOCKER_TIMEOUT_MS },
+      (res) => {
+        const chunks = [];
+        res.on('data', (c) => chunks.push(c));
+        res.on('error', reject);
+        res.on('end', () => {
+          if (res.statusCode < 200 || res.statusCode >= 300) {
+            return reject(new Error(`Docker API responded with HTTP ${res.statusCode}`));
+          }
+          try {
+            resolve(JSON.parse(Buffer.concat(chunks).toString('utf8')));
+          } catch (e) {
+            reject(e);
+          }
+        });
+      }
+    );
+    req.on('timeout', () => req.destroy(new Error('Docker API request timed out')));
+    req.on('error', reject);
+  });
+};
+
 const useDocker = async () => {
   const {
     useOrdering: orderType,
@@ -48,11 +85,7 @@ const useDocker = async () => {
 
   // Get list of containers
   try {
-    const { url, socketPath } = buildDockerRequest(host);
-    const options = socketPath ? { socketPath } : {};
-    const { data } = await axios.get(url, options);
-
-    containers = data;
+    containers = await dockerGet(buildDockerRequest(host));
   } catch {
     logger.log(`Can't connect to the Docker API on ${host}`, 'ERROR');
   }
@@ -158,5 +191,6 @@ const useDocker = async () => {
 };
 
 useDocker.buildDockerRequest = buildDockerRequest;
+useDocker.dockerGet = dockerGet;
 
 module.exports = useDocker;

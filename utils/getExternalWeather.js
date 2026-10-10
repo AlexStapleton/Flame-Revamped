@@ -1,5 +1,4 @@
 const Weather = require('../models/Weather');
-const axios = require('axios');
 const loadConfig = require('./loadConfig');
 
 const getExternalWeather = async () => {
@@ -7,14 +6,17 @@ const getExternalWeather = async () => {
 
   // Fetch data from external API
   try {
-    const res = await axios.get(
-      `https://api.weatherapi.com/v1/current.json?key=${secret}&q=${lat},${long}`
+    const res = await fetch(
+      `https://api.weatherapi.com/v1/current.json?key=${secret}&q=${lat},${long}`,
+      { signal: AbortSignal.timeout(10000) }
     );
+    if (!res.ok) throw new Error(`Weather API responded with HTTP ${res.status}`);
+    const data = await res.json();
 
     // Save weather data. Keep a single row updated in place rather than
     // inserting a new row every 15 minutes (the cleaner job prunes any older
     // legacy rows).
-    const cursor = res.data.current;
+    const cursor = data.current;
     const fields = {
       externalLastUpdate: cursor.last_updated,
       tempC: cursor.temp_c,

@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const fs = require('fs');
 const path = require('path');
-const axios = require('axios');
+const fetchText = require('../utils/fetchText');
 const loadConfig = require('../utils/loadConfig');
 const { auth } = require('../middleware');
 const {
@@ -72,16 +72,8 @@ router.get('/', (_req, res) => {
 // accept http:.
 const ALLOW_HTTP = false;
 
-const fetchRemoteText = async (url) => {
-  const res = await axios.get(url, {
-    timeout: 5000,
-    maxContentLength: 256 * 1024,
-    maxRedirects: 3,
-    responseType: 'text',
-    transformResponse: [(d) => d],
-  });
-  return res.data;
-};
+const fetchRemoteText = (url) =>
+  fetchText(url, { timeoutMs: 5000, maxBytes: 256 * 1024 });
 
 const defaultRawBase = (info) => {
   const branch = info.name === 'flame-dev' ? info.branches.dev : info.branches.stable;
