@@ -1,3 +1,12 @@
+### Unreleased
+**Fixes**
+- On a fresh install, the first start left the default theme as a name ("tron") instead of its colors, so new visitors got an unstyled white page until Flame was restarted. Migration `01_new-config` rewrote `config.json` after the theme had been converted. The theme is now converted again after migrations run.
+- Reloading `/applications` or `/bookmarks` while logged in no longer sends you to the homescreen. The page now waits for the stored login to be checked before deciding.
+- The Kubernetes manifest in `k8s/base` now uses the `alexstapo/flame-revamped` image and reads `PASSWORD` from a Secret named `flame`. Before, it used an old upstream image and set no password, so Flame refused to start.
+
+**Docs**
+- The README is rewritten for 1.9.0, with new screenshots. Docker secrets, Kubernetes and the image build are described as they actually work.
+
 ### v1.9.0 (2026-10-10)
 Pi-hole widget for one or more Pi-holes, v5 and v6. Setup steps are in the README under "Setting up the Pi-hole widget".
 

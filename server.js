@@ -17,6 +17,7 @@ const Sockets = require('./Sockets');
 
 // Utils
 const initApp = require('./utils/init');
+const normalizeTheme = require('./utils/init/normalizeTheme');
 const Logger = require('./utils/Logger');
 const logger = new Logger();
 
@@ -54,6 +55,12 @@ const logger = new Logger();
   // Init app
   await initApp();
   await connectDB();
+  // On a fresh install, migration 01_new-config rewrites config.json from
+  // initialConfig.json after initApp has normalized it, putting the theme
+  // name ("tron") back. The client expects "primary;accent;background", so
+  // without this second pass new visitors get an unstyled page until the
+  // next restart. A no-op once the theme is already normalized.
+  await normalizeTheme();
   await associateModels();
   await jobs();
 

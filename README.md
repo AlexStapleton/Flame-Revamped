@@ -92,11 +92,17 @@ A commented example with Docker secrets is in [.docker/docker-compose.yml](.dock
 
 ### Kubernetes
 
-Kustomize manifests are in [k8s/base](k8s/base): a namespace, deployment, service, ingress, and a read-only service account for ingress discovery. Treat them as a starting point. Before you apply them:
+Kustomize manifests are in [k8s/base](k8s/base): a namespace, deployment, service, ingress, and a read-only service account for ingress discovery. Treat them as a starting point:
 
-- set the deployment's `image` to `alexstapo/flame-revamped:<tag>`,
-- give the container a `PASSWORD` environment variable, for example from a Secret,
-- replace the `emptyDir` data volume with a PersistentVolumeClaim, or your data is lost when the pod is replaced.
+- The deployment reads `PASSWORD` from a Secret named `flame`, which you create yourself (see below).
+- The data volume is an `emptyDir`, so data is lost when the pod is replaced. Replace it with a PersistentVolumeClaim for real use.
+- The image is `alexstapo/flame-revamped:latest`. Pin a version tag if you prefer.
+
+```sh
+kubectl create namespace flame
+kubectl -n flame create secret generic flame --from-literal=password='<strong password>'
+kubectl apply -k k8s/base
+```
 
 ### Without Docker
 
