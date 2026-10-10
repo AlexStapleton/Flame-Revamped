@@ -28,10 +28,20 @@ export default defineConfig({
         // Split large third-party deps into their own long-cacheable chunks so
         // they aren't re-downloaded when app code changes, and the @mdi icon
         // data doesn't sit in the same chunk as everything else.
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-redux': ['redux', 'react-redux', 'redux-thunk'],
-          'vendor-dnd': ['@dnd-kit/core', '@dnd-kit/sortable'],
+        manualChunks(id: string) {
+          // Function form so subpath imports (react-dom/client) and the
+          // scheduler dependency land in the chunk too; the object form only
+          // matches the bare 'react-dom' specifier.
+          const m = id.match(/node_modules\/((?:@[^/]+\/)?[^/]+)\//g);
+          if (!m) return undefined;
+          const pkg = m[m.length - 1].replace(/^node_modules\//, '').replace(/\/$/, '');
+          if (
+            ['react', 'react-dom', 'scheduler', 'react-router', 'react-router-dom'].includes(pkg)
+          )
+            return 'vendor-react';
+          if (['redux', 'react-redux', 'redux-thunk'].includes(pkg)) return 'vendor-redux';
+          if (pkg.startsWith('@dnd-kit/')) return 'vendor-dnd';
+          return undefined;
           // NOTE: @mdi/js is intentionally NOT pinned here. The client only
           // imports single named icons from it (tree-shaken by Rollup); arbitrary
           // user-chosen icon names are fetched from the server (GET /api/icons).
