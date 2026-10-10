@@ -5,6 +5,36 @@ const logger = new Logger();
 const { isDangerousUrl } = require('../../../utils/urlSafety');
 const loadConfig = require('../../../utils/loadConfig');
 
+const CONTAINERS_FILTER = encodeURIComponent(
+  JSON.stringify({ status: ['running'] })
+);
+
+/**
+ * Build the request for the Docker "list containers" endpoint.
+ *
+ * - No scheme and host includes 'localhost': use the local unix socket.
+ * - No scheme otherwise: plain http://<host> (backward compatible).
+ * - Explicit http:// or https:// scheme: use that base URL as-is.
+ */
+const buildDockerRequest = (host) => {
+  const query = `/containers/json?filters=${CONTAINERS_FILTER}`;
+
+  if (/^https?:\/\//i.test(host)) {
+    return { url: `${host.replace(/\/+$/, '')}${query}` };
+  }
+
+  const base = host.replace(/\/+$/, '');
+
+  if (base.includes('localhost')) {
+    return {
+      url: `http://${base}${query}`,
+      socketPath: '/var/run/docker.sock',
+    };
+  }
+
+  return { url: `http://${base}${query}` };
+};
+
 const useDocker = async () => {
   const {
     useOrdering: orderType,
@@ -16,24 +46,11 @@ const useDocker = async () => {
 
   // Get list of containers
   try {
-    if (host.includes('localhost')) {
-      // Use default host
-      let { data } = await axios.get(
-        `http://${host}/containers/json?{"status":["running"]}`,
-        {
-          socketPath: '/var/run/docker.sock',
-        }
-      );
+    const { url, socketPath } = buildDockerRequest(host);
+    const options = socketPath ? { socketPath } : {};
+    const { data } = await axios.get(url, options);
 
-      containers = data;
-    } else {
-      // Use custom host
-      let { data } = await axios.get(
-        `http://${host}/containers/json?{"status":["running"]}`
-      );
-
-      containers = data;
-    }
+    containers = data;
   } catch {
     logger.log(`Can't connect to the Docker API on ${host}`, 'ERROR');
   }
@@ -71,6 +88,7 @@ const useDocker = async () => {
               const regex = /\`([a-zA-Z0-9\.\-]+)\`/g;
               const domains = [];
 
+              let match;
               while ((match = regex.exec(value)) != null) {
                 domains.push('http://' + match[1]);
               }
@@ -154,5 +172,7 @@ const useDocker = async () => {
     }
   }
 };
+
+useDocker.buildDockerRequest = buildDockerRequest;
 
 module.exports = useDocker;
