@@ -5,6 +5,7 @@ import {
   ThemeSettingsForm,
   WeatherForm,
   PiholeForm,
+  CalendarForm,
 } from '../../interfaces';
 
 export const uiSettingsTemplate: UISettingsForm = {
@@ -60,4 +61,13 @@ export const piholeSettingsTemplate: PiholeForm = {
   piholes: [],
   PIHOLE_SECRETS: {},
   piholeDisableSeconds: 300,
+};
+
+export const calendarSettingsTemplate: CalendarForm = {
+  calendars: [],
+  CALENDAR_SECRETS: {},
+  calendarShowNext: true,
+  calendarShowUpcoming: true,
+  calendarDays: 4,
+  calendarHideFromGuests: false,
 };

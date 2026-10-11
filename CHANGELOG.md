@@ -1,5 +1,16 @@
 ### Unreleased
+Calendar widget. Setup steps are in the README under "Calendar widget".
+
+**Upgrade notes**
+- Nothing to do. The new settings (`calendars`, `CALENDAR_SECRETS`, `calendarShowNext`, `calendarShowUpcoming`, `calendarDays`, `calendarHideFromGuests`) are added to `config.json` on startup, and nothing shows until a calendar is added under Settings > Calendar.
+
+**Changes**
+- New calendar widget that reads one or more calendars (up to 10) from their private iCal links, such as Google's "Secret address in iCal format" or Outlook's published ICS link. It shows the next event on one line under the greeting ("10:30 Dentist · in 2h 15m"), and an "Upcoming" section above Applications with one column per day and a colored dot per calendar. Both parts can be turned off under Settings > Calendar, and the Upcoming section shows 1 to 7 days (4 by default).
+- Flame's server downloads the calendars through `GET /api/calendar` and expands recurring events (including moved and cancelled occurrences) with the `ical.js` library. Each calendar is cached for 5 minutes. `GET /api/calendar/update` (admin only) skips the cache and is used by the settings page to test the links.
+- New config keys: `calendars` (name and color per calendar) and `CALENDAR_SECRETS` (the iCal links by calendar id). `CALENDAR_SECRETS` is handled like the other secrets: hidden from visitors who aren't logged in, left out of backup exports, kept when a backup is restored, and never written to the log or put in error messages. With `calendarHideFromGuests` on, visitors who aren't logged in get no events at all.
+
 **Fixes**
+- Logging in from the settings page now reloads the settings with the admin's values. Before, until the page was reloaded, the Weather, Pi-hole and Calendar pages opened with the masked values visitors get: the weather API key showed as "true" (and saving stored "true" as the key), and Pi-hole addresses were empty.
 - On a fresh install, the first start left the default theme as a name ("tron") instead of its colors, so new visitors got an unstyled white page until Flame was restarted. Migration `01_new-config` rewrote `config.json` after the theme had been converted. The theme is now converted again after migrations run.
 - Reloading `/applications` or `/bookmarks` while logged in no longer sends you to the homescreen. The page now waits for the stored login to be checked before deciding.
 - The Kubernetes manifest in `k8s/base` now uses the `alexstapo/flame-revamped` image and reads `PASSWORD` from a Secret named `flame`. Before, it used an old upstream image and set no password, so Flame refused to start.

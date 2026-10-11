@@ -1,5 +1,6 @@
 import { WeatherData } from '../types';
 import { PiholeInstance } from './Pihole';
+import { CalendarInstance } from './Calendar';
 
 export interface Config {
   WEATHER_API_KEY: string;
@@ -56,4 +57,16 @@ export interface Config {
   // How long clicking the shield pauses blocking, in seconds. 0 = until it
   // is clicked again.
   piholeDisableSeconds: number;
+  // Calendar widget. For guests the server sends only each entry's id, name
+  // and color, and an empty CALENDAR_SECRETS.
+  calendars: CalendarInstance[];
+  // Calendar id -> private iCal link.
+  CALENDAR_SECRETS: Record<string, string>;
+  // Next event under the greeting in the header.
+  calendarShowNext: boolean;
+  // The Upcoming section above Applications, and how many days it shows (1-7).
+  calendarShowUpcoming: boolean;
+  calendarDays: number;
+  // When true, visitors who aren't logged in see no events at all.
+  calendarHideFromGuests: boolean;
 }

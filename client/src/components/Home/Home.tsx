@@ -21,6 +21,8 @@ import { AppGrid } from '../Apps/AppGrid/AppGrid';
 import { BookmarkGrid } from '../Bookmarks/BookmarkGrid/BookmarkGrid';
 import { SearchBar } from '../SearchBar/SearchBar';
 import { Header } from './Header/Header';
+import { CalendarUpcoming } from '../Widgets/CalendarWidget/CalendarUpcoming';
+import { useCalendar } from '../Widgets/CalendarWidget/useCalendar';
 
 // Utils
 import { escapeRegex } from '../../utility';
@@ -47,6 +49,8 @@ export const Home = (): JSX.Element => {
 
   // Local search query
   const [localSearch, setLocalSearch] = useState<null | string>(null);
+  // One request feeds both the header line and the Upcoming section.
+  const calendar = useCalendar();
   const [appSearchResult, setAppSearchResult] = useState<null | App[]>(null);
   const [bookmarkSearchResult, setBookmarkSearchResult] = useState<
     null | Category[]
@@ -128,7 +132,11 @@ export const Home = (): JSX.Element => {
         <div></div>
       )}
 
-      <Header />
+      <Header calendar={calendar} />
+
+      {config.calendarShowUpcoming && !localSearch && (
+        <CalendarUpcoming calendar={calendar} />
+      )}
 
       {!isAuthenticated &&
       !apps.some((a) => a.isPinned) &&
