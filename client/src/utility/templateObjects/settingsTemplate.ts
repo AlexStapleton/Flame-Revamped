@@ -31,7 +31,10 @@ export const weatherSettingsTemplate: WeatherForm = {
   lat: 0,
   long: 0,
   isCelsius: true,
+  isKilometer: true,
   weatherData: 'cloud',
+  weatherForecast: true,
+  weatherAlerts: true,
 };
 
 export const generalSettingsTemplate: GeneralForm = {

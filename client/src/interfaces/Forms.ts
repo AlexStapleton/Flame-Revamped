@@ -6,7 +6,10 @@ export interface WeatherForm {
   lat: number;
   long: number;
   isCelsius: boolean;
+  isKilometer: boolean;
   weatherData: WeatherData;
+  weatherForecast: boolean;
+  weatherAlerts: boolean;
 }
 
 export interface PiholeForm {

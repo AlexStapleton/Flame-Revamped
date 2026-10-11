@@ -32,6 +32,8 @@ export interface Config {
   defaultTheme: string;
   isKilometer: boolean;
   weatherData: WeatherData;
+  weatherForecast: boolean;
+  weatherAlerts: boolean;
   hideDate: boolean;
   // Auto-update / "About" settings. Persisted in config.json (added to
   // initialConfig.json so updateConfig's allow-list accepts them).

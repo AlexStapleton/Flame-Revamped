@@ -1,5 +1,20 @@
 ### Unreleased
+**Upgrade notes**
+- Nothing to do. Migration `09_weather-details` adds the new weather columns, and the new settings (`weatherForecast`, `weatherAlerts`) are added to `config.json` on startup. On the first start after upgrading, Flame fetches the weather once so the forecast shows right away.
+
+**Changes**
+- The weather widget now shows feels-like, today's high and low, a 3-day forecast and a severe weather alert line that opens the alert's details. Hovering or focusing it lists humidity, cloud, chance of rain, wind and gusts, UV, air quality, pressure, visibility, sunrise and sunset.
+- Flame calls WeatherAPI's `forecast.json` (3 days, air quality, alerts) instead of `current.json`. It is still one call per 15 minutes, about 3,000 a month on the free plan's 100,000.
+- Settings > Weather has more choices for the extra value (chance of rain, rain, wind, UV, air quality, pressure, visibility), a metric or imperial setting for those units (the existing `isKilometer` key), and switches for the forecast and alerts.
+- Saving weather settings fetches new weather only when the key or location changed, so changing units or display options spends no API call.
+
 **Fixes**
+- Logging in no longer leaves the masked weather key ("true") in the settings forms. Before, a visitor who opened Flame, then logged in and saved a settings page, could overwrite the real weather key with "true". Flame now reloads the settings after login and logout.
+- When the weather changed, the old animated icon kept running and drew over the new one.
+- After the dashboard's live connection drops and comes back (for example after a Flame restart), the widget reloads the weather instead of showing old data until the next update.
+- A new location now shows on open dashboards right away. Before, it was fetched but not pushed until the next 15-minute update. Adding a key also no longer calls WeatherAPI twice.
+- A bad key now shows WeatherAPI's reason (for example "API key is invalid.") in Settings, instead of "External API request failed".
+- °C is rounded to whole degrees, like °F.
 - On a fresh install, the first start left the default theme as a name ("tron") instead of its colors, so new visitors got an unstyled white page until Flame was restarted. Migration `01_new-config` rewrote `config.json` after the theme had been converted. The theme is now converted again after migrations run.
 - Reloading `/applications` or `/bookmarks` while logged in no longer sends you to the homescreen. The page now waits for the stored login to be checked before deciding.
 - The Kubernetes manifest in `k8s/base` now uses the `alexstapo/flame-revamped` image and reads `PASSWORD` from a Secret named `flame`. Before, it used an old upstream image and set no password, so Flame refused to start.
