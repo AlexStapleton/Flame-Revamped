@@ -1,5 +1,5 @@
-### Unreleased
-Calendar widget, and a weather widget with a 3-day forecast and alerts. Calendar setup steps are in the README under "Calendar widget".
+### v2.0.0 (2026-10-11)
+Calendar widget, and a weather widget with a 3-day forecast and alerts. The major version marks a feature milestone: there are no breaking changes, and upgrading from any 1.x release needs nothing beyond pulling the new image. Calendar setup steps are in the README under "Calendar widget".
 
 **Upgrade notes**
 - Nothing to do. The new settings (`calendars`, `CALENDAR_SECRETS`, `calendarShowNext`, `calendarShowUpcoming`, `calendarDays`, `calendarHideFromGuests`) are added to `config.json` on startup, and nothing shows until a calendar is added under Settings > Calendar.
@@ -21,6 +21,14 @@ Calendar widget, and a weather widget with a 3-day forecast and alerts. Calendar
 - A new location now shows on open dashboards right away. Before, it was fetched but not pushed until the next 15-minute update. Adding a key also no longer calls WeatherAPI twice.
 - A bad key now shows WeatherAPI's reason (for example "API key is invalid.") in Settings, instead of "External API request failed".
 - °C is rounded to whole degrees, like °F.
+
+### v1.9.1 (2026-10-10)
+README refresh and three fixes (PR #32).
+
+**Upgrade notes**
+- The published v1.9.1 image reports its version as 1.9.0, because the tag was created without a version bump. v2.0.0 includes everything in 1.9.1.
+
+**Fixes**
 - On a fresh install, the first start left the default theme as a name ("tron") instead of its colors, so new visitors got an unstyled white page until Flame was restarted. Migration `01_new-config` rewrote `config.json` after the theme had been converted. The theme is now converted again after migrations run.
 - Reloading `/applications` or `/bookmarks` while logged in no longer sends you to the homescreen. The page now waits for the stored login to be checked before deciding.
 - The Kubernetes manifest in `k8s/base` now uses the `alexstapo/flame-revamped` image and reads `PASSWORD` from a Secret named `flame`. Before, it used an old upstream image and set no password, so Flame refused to start.

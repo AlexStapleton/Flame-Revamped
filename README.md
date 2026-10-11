@@ -44,8 +44,8 @@ Images are on Docker Hub as [`alexstapo/flame-revamped`](https://hub.docker.com/
 | Tag | Meaning |
 |-----|---------|
 | `latest` | The newest release |
-| `1.9` | The newest 1.9.x release |
-| `1.9.0` | Exactly that release |
+| `2.0` | The newest 2.0.x release |
+| `2.0.0` | Exactly that release |
 
 ```sh
 docker run -d \
