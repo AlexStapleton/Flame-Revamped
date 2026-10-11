@@ -8,7 +8,7 @@ import {
   LogoutAction,
 } from '../actions/auth';
 import { http, HttpError } from '../../utility/http';
-import { getApps, getCategories } from '.';
+import { getApps, getCategories, getConfig } from '.';
 
 export const login =
   (formData: { password: string; duration: string }) =>
@@ -20,6 +20,12 @@ export const login =
       );
 
       localStorage.setItem('token', res.data.data.token);
+
+      // Visitors get a masked config (no weather key, Pi-hole addresses or
+      // calendar links). Reload it with the new token before the settings
+      // pages appear, or they open with those fields empty and saving would
+      // overwrite the real values.
+      await dispatch<any>(getConfig());
 
       dispatch({
         type: ActionType.login,
@@ -40,6 +46,8 @@ export const logout = () => (dispatch: Dispatch<LogoutAction>) => {
     type: ActionType.logout,
   });
 
+  // Drop the admin-only values from the store.
+  dispatch<any>(getConfig());
   dispatch<any>(getApps());
   dispatch<any>(getCategories());
 };

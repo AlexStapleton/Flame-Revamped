@@ -26,6 +26,11 @@
       "authRequired": true
     },
     {
+      "name": "Calendar",
+      "dest": "/settings/calendar",
+      "authRequired": true
+    },
+    {
       "name": "Docker",
       "dest": "/settings/docker",
       "authRequired": true
