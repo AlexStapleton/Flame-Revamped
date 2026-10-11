@@ -29,6 +29,8 @@
   "defaultTheme": "tron",
   "isKilometer": true,
   "weatherData": "cloud",
+  "weatherForecast": true,
+  "weatherAlerts": true,
   "hideDate": false,
   "automaticUpdates": false,
   "useDefaults": true,

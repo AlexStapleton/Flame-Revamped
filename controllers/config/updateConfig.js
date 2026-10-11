@@ -1,10 +1,6 @@
 const asyncWrapper = require('../../middleware/asyncWrapper');
 const loadConfig = require('../../utils/loadConfig');
-const refreshWeather = require('../../utils/refreshWeather');
-const Logger = require('../../utils/Logger');
 const { writeFile } = require('fs/promises');
-
-const logger = new Logger();
 
 // Keep only the keys from `body` that already exist in `existingConfig`, so a
 // request can't inject arbitrary keys to pollute config.json. Pure + testable.
@@ -37,13 +33,8 @@ const updateConfig = asyncWrapper(async (req, res, next) => {
   // and doesn't serve a stale value.
   loadConfig.setCache(newConfig);
 
-  // Weather key just added: fetch once now so the widget fills without waiting
-  // for the next 15-minute tick. Fire-and-forget; failures are logged.
-  if (!existingConfig.WEATHER_API_KEY && newConfig.WEATHER_API_KEY) {
-    refreshWeather().catch((err) =>
-      logger.log(`Weather refresh failed: ${err.message}`, 'ERROR')
-    );
-  }
+  // Weather is not fetched here: Weather settings calls GET /api/weather/update
+  // after saving, which fetches once and pushes the result to open dashboards.
 
   res.status(200).send({
     success: true,

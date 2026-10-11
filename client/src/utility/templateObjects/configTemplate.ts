@@ -32,6 +32,8 @@ export const configTemplate: Config = {
   defaultTheme: 'tron',
   isKilometer: true,
   weatherData: 'cloud',
+  weatherForecast: true,
+  weatherAlerts: true,
   hideDate: false,
   // Same defaults as utils/init/initialConfig.json on the server.
   automaticUpdates: false,

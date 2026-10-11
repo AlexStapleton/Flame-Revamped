@@ -34,12 +34,13 @@ export const WeatherSettings = (): JSX.Element => {
     weatherSettingsTemplate
   );
 
-  // Get config
+  // Get config. Also follows later config loads, such as the re-fetch after
+  // login that replaces the masked key with the real one.
   useEffect(() => {
     setFormData({
       ...config,
     });
-  }, [loading]);
+  }, [loading, config]);
 
   // Form handler
   const formSubmitHandler = async (e: FormEvent) => {
@@ -53,10 +54,21 @@ export const WeatherSettings = (): JSX.Element => {
       });
     }
 
+    // Only a new key or location needs fresh data from WeatherAPI. Units and
+    // display options are applied in the browser, so saving them spends no
+    // API call (the free plan allows 100,000 a month).
+    const needsFetch =
+      !!formData.WEATHER_API_KEY &&
+      (formData.WEATHER_API_KEY !== config.WEATHER_API_KEY ||
+        formData.lat !== config.lat ||
+        formData.long !== config.long);
+
     // Save settings
     await updateConfig(formData);
 
-    // Update weather
+    if (!needsFetch) return;
+
+    // Fetch weather now; the server pushes it to every open dashboard
     http
       .get<ApiResponse<Weather>>('/api/weather/update', {
         headers: applyAuth(),
@@ -70,7 +82,7 @@ export const WeatherSettings = (): JSX.Element => {
       .catch((err) => {
         createNotification({
           title: 'Error',
-          message: err.response.data.error,
+          message: err.response?.data?.error || 'Weather update failed',
         });
       });
   };
@@ -174,6 +186,20 @@ export const WeatherSettings = (): JSX.Element => {
         </select>
       </InputGroup>
 
+      {/* UNITS */}
+      <InputGroup>
+        <label htmlFor="isKilometer">Units for wind, rain and visibility</label>
+        <select
+          id="isKilometer"
+          name="isKilometer"
+          onChange={(e) => inputChangeHandler(e, { isBool: true })}
+          value={formData.isKilometer ? 1 : 0}
+        >
+          <option value={1}>Metric (km/h, mm, hPa, km)</option>
+          <option value={0}>Imperial (mph, in, inHg, mi)</option>
+        </select>
+      </InputGroup>
+
       {/* WEATHER DATA */}
       <InputGroup>
         <label htmlFor="weatherData">Additional weather data</label>
@@ -185,7 +211,48 @@ export const WeatherSettings = (): JSX.Element => {
         >
           <option value="cloud">Cloud coverage</option>
           <option value="humidity">Humidity</option>
+          <option value="rain">Chance of rain today</option>
+          <option value="precip">Rain in the last hour</option>
+          <option value="wind">Wind</option>
+          <option value="uv">UV index</option>
+          <option value="aqi">Air quality</option>
+          <option value="pressure">Pressure</option>
+          <option value="visibility">Visibility</option>
         </select>
+        <span>Shown next to today's high and low.</span>
+      </InputGroup>
+
+      {/* FORECAST */}
+      <InputGroup>
+        <label htmlFor="weatherForecast">Show 3-day forecast</label>
+        <select
+          id="weatherForecast"
+          name="weatherForecast"
+          value={formData.weatherForecast ? 1 : 0}
+          onChange={(e) => inputChangeHandler(e, { isBool: true })}
+        >
+          <option value={1}>True</option>
+          <option value={0}>False</option>
+        </select>
+        <span>3 days is the most the free WeatherAPI plan provides.</span>
+      </InputGroup>
+
+      {/* ALERTS */}
+      <InputGroup>
+        <label htmlFor="weatherAlerts">Show severe weather alerts</label>
+        <select
+          id="weatherAlerts"
+          name="weatherAlerts"
+          value={formData.weatherAlerts ? 1 : 0}
+          onChange={(e) => inputChangeHandler(e, { isBool: true })}
+        >
+          <option value={1}>True</option>
+          <option value={0}>False</option>
+        </select>
+        <span>
+          Alerts come from local weather services. Coverage depends on your
+          country and on your WeatherAPI plan.
+        </span>
       </InputGroup>
 
       <Button>Save changes</Button>

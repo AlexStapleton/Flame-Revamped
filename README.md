@@ -28,7 +28,7 @@ The full list of changes is in [CHANGELOG.md](CHANGELOG.md).
 - 🔍 Search bar with local filtering, 11 web search providers and the option to add your own
 - 🔑 Password login to protect your settings, apps and bookmarks
 - 🎨 16 built-in color themes, a theme editor and custom CSS
-- ☀️ Weather widget with temperature, cloud cover or humidity, and animated icons
+- ☀️ Weather widget with temperature, feels-like, today's high and low, a 3-day forecast, severe weather alerts and animated icons. Hover it for wind, UV, air quality, sunrise and sunset
 - 🛡️ Pi-hole widget with today's queries, blocked queries, blocklist size and blocking status
 - 📅 Calendar widget with your next event and the next few days, from any calendar's private iCal link
 - 🟢 Optional up/down health check per app
@@ -176,6 +176,10 @@ More detail is in the original project's [search bar wiki page](https://github.c
 1. Get an API key from [WeatherAPI.com](https://www.weatherapi.com/pricing.aspx). The free plan is plenty, since Flame makes fewer than 3,000 calls a month.
 2. Get the latitude and longitude for your location, from [latlong.net](https://www.latlong.net/convert-address-to-lat-long.html) or with "Click to get current location" in the settings.
 3. Enter both under Settings > Weather and save. The widget appears on the homescreen, and a new key works without a restart.
+
+The widget shows the current temperature and feels-like, today's high and low with one extra value you choose (cloud cover, humidity, chance of rain, rain, wind, UV, air quality, pressure or visibility), and a 3-day forecast. Hovering it lists the rest, including sunrise and sunset. When a severe weather alert is in effect, a line under the widget names it, and clicking it shows the details. The forecast and alerts can be turned off, and wind, rain, pressure and visibility can be shown in metric or imperial units.
+
+Flame fetches weather from WeatherAPI's `forecast.json` once every 15 minutes, once on startup when the stored weather is older than that, and once when you save a new key or location. That is about 3,000 calls a month, well under the free plan's 100,000. 3 days is the free plan's forecast limit, and its alert coverage is limited. If you switch fields off on WeatherAPI's "fields" page, the widget leaves those values out.
 
 ### Pi-hole widget
 

@@ -1,6 +1,28 @@
+/* Current conditions | 3-day forecast, with an optional alert line below.
+   Hidden on narrow screens, like the Pi-hole widget. */
 .WeatherWidget {
   display: flex;
+  flex-direction: column;
+  align-items: flex-end;
   visibility: hidden;
+  color: var(--color-primary);
+}
+
+.Main {
+  display: flex;
+  align-items: center;
+}
+
+.Current {
+  position: relative;
+  display: flex;
+  border-radius: 4px;
+  outline: none;
+}
+
+.Current:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 4px;
 }
 
 .WeatherDetails {
@@ -8,18 +30,161 @@
   flex-direction: column;
   justify-content: center;
   font-size: 16px;
-  color: var(--color-primary);
   margin-left: 10px;
   font-weight: 500;
+  white-space: nowrap;
 }
 
-.WeatherDetails span:first-child {
+.WeatherDetails > span:first-child {
   border-bottom: 1px solid var(--color-primary);
   padding-bottom: 5px;
 }
 
-.WeatherDetails span:last-child {
+.WeatherDetails > span:last-child {
   padding-top: 5px;
+  font-size: 14px;
+}
+
+.Feels {
+  font-size: 12px;
+  font-weight: 400;
+  opacity: 0.8;
+}
+
+/* Details on hover or keyboard focus */
+.Popover {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 20;
+  min-width: 220px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--color-accent);
+  background: var(--color-background);
+  font-size: 13px;
+  font-weight: 400;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.Current:hover .Popover,
+.Current:focus-within .Popover {
+  display: block;
+}
+
+.PopoverTitle {
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.Popover dl {
+  display: grid;
+  grid-template-columns: auto auto;
+  column-gap: 12px;
+  row-gap: 2px;
+  margin: 0;
+}
+
+.Popover dt {
+  opacity: 0.75;
+}
+
+.Popover dd {
+  margin: 0;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.Updated {
+  margin-top: 6px;
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.Forecast {
+  display: flex;
+  gap: 12px;
+  margin-left: 14px;
+  padding-left: 14px;
+  border-left: 1px solid var(--color-primary);
+}
+
+.Day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.DayName {
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+.Rain {
+  opacity: 0.7;
+}
+
+.Alerts {
+  position: relative;
+  margin-top: 8px;
+  max-width: 420px;
+}
+
+.AlertButton {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-accent);
+  font: inherit;
+  font-size: 13px;
+  text-align: right;
+  cursor: pointer;
+}
+
+.AlertButton:hover {
+  text-decoration: underline;
+}
+
+.AlertButton:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.AlertDetails {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  width: min(420px, 90vw);
+  max-height: 50vh;
+  overflow-y: auto;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--color-accent);
+  background: var(--color-background);
+  font-size: 13px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.Alert + .Alert {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-primary);
+}
+
+.AlertAreas {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+/* divs, not p: the header styles every p as one uppercase 30px line. */
+.AlertText {
+  margin-top: 6px;
+  white-space: pre-line;
 }
 
 @media (min-width: 600px) {

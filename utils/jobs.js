@@ -1,6 +1,7 @@
 const schedule = require('node-schedule');
 const refreshWeather = require('./refreshWeather');
 const clearWeatherData = require('./clearWeatherData');
+const Weather = require('../models/Weather');
 const syncApps = require('./syncApps');
 const createSyncTick = require('./syncTick');
 const runStatusChecks = require('./runStatusChecks');
@@ -9,6 +10,19 @@ const { isActive } = require('./activity');
 const Logger = require('./Logger');
 const loadConfig = require('./loadConfig');
 const logger = new Logger();
+
+const WEATHER_INTERVAL_MS = 15 * 60 * 1000;
+
+const refreshWeatherIfStale = async () => {
+  const { WEATHER_API_KEY } = await loadConfig();
+  if (!WEATHER_API_KEY) return;
+  const latest = await Weather.findOne({ order: [['id', 'DESC']] });
+  const fresh =
+    latest &&
+    latest.getDataValue('forecast') &&
+    Date.now() - new Date(latest.updatedAt).getTime() < WEATHER_INTERVAL_MS;
+  if (!fresh) await refreshWeather();
+};
 
 module.exports = async function () {
   const { statusCheckInterval } = await loadConfig();
@@ -26,6 +40,13 @@ module.exports = async function () {
       logger.log(err.message, 'ERROR');
     }
   });
+
+  // Fetch once at startup when the stored weather is older than one tick or
+  // predates the forecast fields (first start after upgrading), so the widget
+  // doesn't wait up to 15 minutes. A quick restart costs no extra API call.
+  refreshWeatherIfStale().catch((err) =>
+    logger.log(`Startup weather refresh failed: ${err.message}`, 'ERROR')
+  );
 
   // Clear old weather data every 4 hours
   schedule.scheduleJob('clearWeather', '0 5 */4 * * *', async () => {
