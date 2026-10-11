@@ -19,6 +19,12 @@
   margin-bottom: 2.5rem;
 }
 
+.HeaderGreeting {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
 .HeaderWidgets {
   display: flex;
   align-items: center;

@@ -47,4 +47,10 @@ export const configTemplate: Config = {
   piholes: [],
   PIHOLE_SECRETS: {},
   piholeDisableSeconds: 300,
+  calendars: [],
+  CALENDAR_SECRETS: {},
+  calendarShowNext: true,
+  calendarShowUpcoming: true,
+  calendarDays: 4,
+  calendarHideFromGuests: false,
 };

@@ -7,6 +7,8 @@ const loadConfig = require('../../utils/loadConfig');
 // 'true' while keeping that signal; authenticated requests (e.g. the settings
 // form) get the real values. For Pi-hole, guests get only each entry's id and
 // name (addresses are usually LAN hosts guests have no use for) and no secrets.
+// For calendars, guests get id, name and color (nothing at all when
+// calendarHideFromGuests is on); the iCal links are secrets.
 // Returns a shallow copy — never mutates the cached config. Pure + testable.
 const maskConfigForViewer = (config, isAuthenticated) => {
   if (isAuthenticated) return config;
@@ -17,6 +19,15 @@ const maskConfigForViewer = (config, isAuthenticated) => {
       ? config.piholes.map((p) => ({ id: p && p.id, name: p && p.name }))
       : [],
     PIHOLE_SECRETS: {},
+    calendars:
+      Array.isArray(config.calendars) && !config.calendarHideFromGuests
+        ? config.calendars.map((c) => ({
+            id: c && c.id,
+            name: c && c.name,
+            color: c && c.color,
+          }))
+        : [],
+    CALENDAR_SECRETS: {},
   };
 };
 

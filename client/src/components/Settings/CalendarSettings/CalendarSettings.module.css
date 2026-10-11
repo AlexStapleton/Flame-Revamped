@@ -1,0 +1,13 @@
+/* Space between calendar entries. */
+.Entry {
+  margin-bottom: 30px;
+}
+
+/* A swatch rather than a full-width bar. Doubled class to beat the
+   InputGroup input rule (width: 100%). */
+.Color.Color {
+  width: 60px;
+  height: 36px;
+  padding: 4px;
+  cursor: pointer;
+}

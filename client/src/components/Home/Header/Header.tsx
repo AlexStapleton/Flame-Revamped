@@ -11,13 +11,20 @@ import classes from './Header.module.css';
 // Components
 import { WeatherWidget } from '../../Widgets/WeatherWidget/WeatherWidget';
 import { PiholeWidget } from '../../Widgets/PiholeWidget/PiholeWidget';
+import { CalendarNext } from '../../Widgets/CalendarWidget/CalendarNext';
+import { CalendarState } from '../../Widgets/CalendarWidget/useCalendar';
 
 // Utils
 import { getDateTime } from './functions/getDateTime';
 import { greeter } from './functions/greeter';
 
-export const Header = (): JSX.Element => {
-  const { hideHeader, hideDate, showTime } = useSelector(
+interface Props {
+  // Shared with the Upcoming section, so both use one request.
+  calendar: CalendarState;
+}
+
+export const Header = ({ calendar }: Props): JSX.Element => {
+  const { hideHeader, hideDate, showTime, calendarShowNext } = useSelector(
     (state: State) => state.config.config
   );
 
@@ -45,7 +52,10 @@ export const Header = (): JSX.Element => {
 
       {!hideHeader && (
         <span className={classes.HeaderMain}>
-          <h1>{greeting}</h1>
+          <span className={classes.HeaderGreeting}>
+            <h1>{greeting}</h1>
+            {calendarShowNext && <CalendarNext calendar={calendar} />}
+          </span>
           <span className={classes.HeaderWidgets}>
             <PiholeWidget />
             <WeatherWidget />

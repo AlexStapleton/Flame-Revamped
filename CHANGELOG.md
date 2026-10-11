@@ -1,14 +1,21 @@
 ### Unreleased
+Calendar widget, and a weather widget with a 3-day forecast and alerts. Calendar setup steps are in the README under "Calendar widget".
+
 **Upgrade notes**
+- Nothing to do. The new settings (`calendars`, `CALENDAR_SECRETS`, `calendarShowNext`, `calendarShowUpcoming`, `calendarDays`, `calendarHideFromGuests`) are added to `config.json` on startup, and nothing shows until a calendar is added under Settings > Calendar.
 - Nothing to do. Migration `09_weather-details` adds the new weather columns, and the new settings (`weatherForecast`, `weatherAlerts`) are added to `config.json` on startup. On the first start after upgrading, Flame fetches the weather once so the forecast shows right away.
 
 **Changes**
+- New calendar widget that reads one or more calendars (up to 10) from their private iCal links, such as Google's "Secret address in iCal format" or Outlook's published ICS link. It shows the next event on one line under the greeting ("10:30 Dentist · in 2h 15m"), and an "Upcoming" section above Applications with one column per day and a colored dot per calendar. Both parts can be turned off under Settings > Calendar, and the Upcoming section shows 1 to 7 days (4 by default).
+- Flame's server downloads the calendars through `GET /api/calendar` and expands recurring events (including moved and cancelled occurrences) with the `ical.js` library. Each calendar is cached for 5 minutes. `GET /api/calendar/update` (admin only) skips the cache and is used by the settings page to test the links.
+- New config keys: `calendars` (name and color per calendar) and `CALENDAR_SECRETS` (the iCal links by calendar id). `CALENDAR_SECRETS` is handled like the other secrets: hidden from visitors who aren't logged in, left out of backup exports, kept when a backup is restored, and never written to the log or put in error messages. With `calendarHideFromGuests` on, visitors who aren't logged in get no events at all.
 - The weather widget now shows feels-like, today's high and low, a 3-day forecast and a severe weather alert line that opens the alert's details. Hovering or focusing it lists humidity, cloud, chance of rain, wind and gusts, UV, air quality, pressure, visibility, sunrise and sunset.
 - Flame calls WeatherAPI's `forecast.json` (3 days, air quality, alerts) instead of `current.json`. It is still one call per 15 minutes, about 3,000 a month on the free plan's 100,000.
 - Settings > Weather has more choices for the extra value (chance of rain, rain, wind, UV, air quality, pressure, visibility), a metric or imperial setting for those units (the existing `isKilometer` key), and switches for the forecast and alerts.
 - Saving weather settings fetches new weather only when the key or location changed, so changing units or display options spends no API call.
 
 **Fixes**
+- Logging in from the settings page now reloads the settings with the admin's values. Before, until the page was reloaded, the Weather, Pi-hole and Calendar pages opened with the masked values visitors get: the weather API key showed as "true" (and saving stored "true" as the key), and Pi-hole addresses were empty.
 - When the weather changed, the old animated icon kept running and drew over the new one.
 - After the dashboard's live connection drops and comes back (for example after a Flame restart), the widget reloads the weather instead of showing old data until the next update.
 - A new location now shows on open dashboards right away. Before, it was fetched but not pushed until the next 15-minute update. Adding a key also no longer calls WeatherAPI twice.

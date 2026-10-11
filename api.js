@@ -130,6 +130,7 @@ api.use('/api/apps', require('./routes/apps'));
 api.use('/api/config', require('./routes/config'));
 api.use('/api/weather', require('./routes/weather'));
 api.use('/api/pihole', require('./routes/pihole'));
+api.use('/api/calendar', require('./routes/calendar'));
 api.use('/api/categories', require('./routes/category'));
 api.use('/api/bookmarks', require('./routes/bookmark'));
 api.use('/api/queries', require('./routes/queries'));

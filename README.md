@@ -8,6 +8,7 @@ Flame Revamped is a maintained fork of [Flame by Paweł Malak](https://github.co
 
 ## What's new in this fork
 
+- **Calendar widget** that shows your next event in the header and the next few days above Applications, from Google, Outlook, iCloud or Nextcloud calendars.
 - **Pi-hole widget** for one or more Pi-holes (v5 and v6), with click-to-pause for logged-in admins.
 - **Security hardening:** a Content-Security-Policy, sanitized SVG icons, blocked `javascript:` and similar URLs, login tokens tied to the admin password, a random signing key per install, and a non-root container. Details are in [docs/SECURITY_PERFORMANCE_REVIEW.md](docs/SECURITY_PERFORMANCE_REVIEW.md).
 - **Faster homescreen:** about 114 KB of JavaScript instead of 759 KB, because the full icon set is no longer loaded up front.
@@ -29,6 +30,7 @@ The full list of changes is in [CHANGELOG.md](CHANGELOG.md).
 - 🎨 16 built-in color themes, a theme editor and custom CSS
 - ☀️ Weather widget with temperature, feels-like, today's high and low, a 3-day forecast, severe weather alerts and animated icons. Hover it for wind, UV, air quality, sunrise and sunset
 - 🛡️ Pi-hole widget with today's queries, blocked queries, blocklist size and blocking status
+- 📅 Calendar widget with your next event and the next few days, from any calendar's private iCal link
 - 🟢 Optional up/down health check per app
 - 🐳 Docker and Kubernetes integration that adds apps from container labels or ingress annotations
 - 💾 Backup & Restore
@@ -193,13 +195,28 @@ When you're logged in, click a Pi-hole's shield to pause its blocking, and click
 
 Flame's server talks to the Pi-holes, so passwords and tokens never reach the browser. They are left out of backups, and visitors who aren't logged in see only each Pi-hole's name, not its address. A Pi-hole that can't be reached shows as "unreachable", and a logged-in admin sees the reason when they hover over it. For an `https://` address with a self-signed certificate, set "Skip certificate check" to True, or use the `http://` address instead. v5 sends its token in the URL, so prefer a LAN or Docker-network address for it.
 
+### Calendar widget
+
+Shows events from one or more calendars (up to 10): your next event on one line under the greeting, and an "Upcoming" section above Applications with one column per day. Each part can be switched off.
+
+1. Copy the calendar's private iCal link:
+   - **Google Calendar:** on the web, open Settings, pick the calendar under "Settings for my calendars", go to "Integrate calendar" and copy "Secret address in iCal format".
+   - **Outlook / Microsoft 365:** open Settings > Calendar > Shared calendars, publish the calendar under "Publish a calendar" and copy the ICS link.
+   - **iCloud, Nextcloud and others:** any `https://`, `http://` or `webcal://` link to an `.ics` feed works.
+2. In Flame, open Settings > Calendar and click "Add calendar". Enter a name, pick a color for its dot, and paste the link. Repeat for each calendar.
+3. Save. Flame loads each calendar and shows how many events it found, or why a link didn't work.
+
+Under Settings > Calendar > Display you can turn the header line and the Upcoming section on or off, choose how many days the Upcoming section shows (1 to 7, default 4), and choose whether visitors who aren't logged in see events at all. They do by default, like the other widgets. Pick "See no events" if people you don't share your calendar with can open Flame.
+
+The iCal link works like a password: anyone who has it can read the whole calendar. So Flame's server downloads the calendars and the browser only gets the events it shows (title, time and which calendar). The links are never sent to visitors, are left out of backups, and are kept when a backup is restored. Each calendar is downloaded at most once every 5 minutes. Google only updates its iCal feed every few hours, so a new event can take a while to appear. Recurring events, moved or cancelled occurrences and time zones are handled. The next-event line also shows on phones; the Upcoming section stacks the days there.
+
 ### App status checks
 
 Turn on "Health check" when adding or editing an app, and Flame shows a green or red dot for whether it is up. By default it checks the app's own URL every 60 seconds. You can give a separate "Status URL" instead.
 
 ### Backup & Restore
 
-Under Settings > App, "Backup & Restore" exports your apps, bookmarks, categories, settings, themes, search providers and custom CSS to one file, and imports it again. Importing replaces what is there, and Flame saves a snapshot first. Secrets (the weather API key and Pi-hole passwords) are left out of the export, and the ones already set are kept on import.
+Under Settings > App, "Backup & Restore" exports your apps, bookmarks, categories, settings, themes, search providers and custom CSS to one file, and imports it again. Importing replaces what is there, and Flame saves a snapshot first. Secrets (the weather API key, Pi-hole passwords and calendar links) are left out of the export, and the ones already set are kept on import.
 
 ### Docker integration
 

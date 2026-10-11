@@ -1,5 +1,6 @@
 import { WeatherData } from '../types';
 import { PiholeInstance } from './Pihole';
+import { CalendarInstance } from './Calendar';
 
 export interface WeatherForm {
   WEATHER_API_KEY: string;
@@ -16,6 +17,15 @@ export interface PiholeForm {
   piholes: PiholeInstance[];
   PIHOLE_SECRETS: Record<string, string>;
   piholeDisableSeconds: number;
+}
+
+export interface CalendarForm {
+  calendars: CalendarInstance[];
+  CALENDAR_SECRETS: Record<string, string>;
+  calendarShowNext: boolean;
+  calendarShowUpcoming: boolean;
+  calendarDays: number;
+  calendarHideFromGuests: boolean;
 }
 
 export interface GeneralForm {

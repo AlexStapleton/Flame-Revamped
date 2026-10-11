@@ -3,6 +3,7 @@ export * from './Theme';
 export * from './Api';
 export * from './Weather';
 export * from './Pihole';
+export * from './Calendar';
 export * from './Bookmark';
 export * from './Category';
 export * from './Notification';

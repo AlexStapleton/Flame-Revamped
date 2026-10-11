@@ -42,5 +42,11 @@
   "bookmarksColumns": 4,
   "piholes": [],
   "PIHOLE_SECRETS": {},
-  "piholeDisableSeconds": 300
+  "piholeDisableSeconds": 300,
+  "calendars": [],
+  "CALENDAR_SECRETS": {},
+  "calendarShowNext": true,
+  "calendarShowUpcoming": true,
+  "calendarDays": 4,
+  "calendarHideFromGuests": false
 }
