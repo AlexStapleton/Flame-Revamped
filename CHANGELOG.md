@@ -9,7 +9,6 @@
 - Saving weather settings fetches new weather only when the key or location changed, so changing units or display options spends no API call.
 
 **Fixes**
-- Logging in no longer leaves the masked weather key ("true") in the settings forms. Before, a visitor who opened Flame, then logged in and saved a settings page, could overwrite the real weather key with "true". Flame now reloads the settings after login and logout.
 - When the weather changed, the old animated icon kept running and drew over the new one.
 - After the dashboard's live connection drops and comes back (for example after a Flame restart), the widget reloads the weather instead of showing old data until the next update.
 - A new location now shows on open dashboards right away. Before, it was fetched but not pushed until the next 15-minute update. Adding a key also no longer calls WeatherAPI twice.

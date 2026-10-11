@@ -8,7 +8,7 @@ import {
   LogoutAction,
 } from '../actions/auth';
 import { http, HttpError } from '../../utility/http';
-import { getApps, getCategories, getConfig } from '.';
+import { getApps, getCategories } from '.';
 
 export const login =
   (formData: { password: string; duration: string }) =>
@@ -28,10 +28,6 @@ export const login =
 
       dispatch<any>(getApps());
       dispatch<any>(getCategories());
-      // The config loaded before login has the weather key and Pi-hole
-      // secrets masked. Without a re-fetch, saving any settings form would
-      // write the mask ("true") over the real key.
-      dispatch<any>(getConfig());
     } catch (err) {
       dispatch<any>(authError(err, true));
     }
@@ -46,8 +42,6 @@ export const logout = () => (dispatch: Dispatch<LogoutAction>) => {
 
   dispatch<any>(getApps());
   dispatch<any>(getCategories());
-  // Drop the real secrets from memory again.
-  dispatch<any>(getConfig());
 };
 
 export const autoLogin = () => async (dispatch: Dispatch<AutoLoginAction>) => {
