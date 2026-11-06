@@ -56,7 +56,7 @@ export const CalendarSettings = (): JSX.Element => {
       calendarShowNext: config.calendarShowNext ?? true,
       calendarShowUpcoming: config.calendarShowUpcoming ?? true,
       calendarDays: config.calendarDays ?? 4,
-      calendarHideFromGuests: config.calendarHideFromGuests ?? false,
+      calendarHideFromGuests: config.calendarHideFromGuests ?? true,
     });
   }, [loading]);
 
@@ -303,8 +303,8 @@ export const CalendarSettings = (): JSX.Element => {
               <option value={1}>See no events</option>
             </select>
             <span>
-              Event titles are shown on the homescreen. Choose "See no events"
-              if people you don't share your calendar with can open Flame.
+              Hidden from visitors by default. Choose "See events" only if
+              everyone who can open Flame may see your event titles.
             </span>
           </InputGroup>
         </>

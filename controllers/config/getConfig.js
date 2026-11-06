@@ -1,12 +1,10 @@
 const asyncWrapper = require('../../middleware/asyncWrapper');
 const loadConfig = require('../../utils/loadConfig');
 
-// Never expose the weather API key or Pi-hole secrets to unauthenticated
-// clients. The public homescreen only needs to know whether weather is
-// configured (a truthy value) to render the widget, so mask the real key to
-// 'true' while keeping that signal; authenticated requests (e.g. the settings
-// form) get the real values. For Pi-hole, guests get only each entry's id and
-// name (addresses are usually LAN hosts guests have no use for) and no secrets.
+// Never expose secrets or login-only widgets to unauthenticated clients;
+// authenticated requests (e.g. the settings form) get the real values.
+// Weather and Pi-hole are only shown to logged-in users, so guests get no
+// weather key (the widget's "configured" signal), no location and no Pi-holes.
 // For calendars, guests get id, name and color (nothing at all when
 // calendarHideFromGuests is on); the iCal links are secrets.
 // Returns a shallow copy — never mutates the cached config. Pure + testable.
@@ -14,10 +12,10 @@ const maskConfigForViewer = (config, isAuthenticated) => {
   if (isAuthenticated) return config;
   return {
     ...config,
-    WEATHER_API_KEY: config.WEATHER_API_KEY ? 'true' : '',
-    piholes: Array.isArray(config.piholes)
-      ? config.piholes.map((p) => ({ id: p && p.id, name: p && p.name }))
-      : [],
+    WEATHER_API_KEY: '',
+    lat: 0,
+    long: 0,
+    piholes: [],
     PIHOLE_SECRETS: {},
     calendars:
       Array.isArray(config.calendars) && !config.calendarHideFromGuests

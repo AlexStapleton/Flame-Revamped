@@ -27,6 +27,11 @@ export const Header = ({ calendar }: Props): JSX.Element => {
   const { hideHeader, hideDate, showTime, calendarShowNext } = useSelector(
     (state: State) => state.config.config
   );
+  // Pi-hole and weather are only for logged-in users (the server enforces
+  // this too). Not mounting them means guests don't even request the data.
+  const isAuthenticated = useSelector(
+    (state: State) => state.auth.isAuthenticated
+  );
 
   const [dateTime, setDateTime] = useState<string>(getDateTime());
   const [greeting, setGreeting] = useState<string>(greeter());
@@ -57,8 +62,8 @@ export const Header = ({ calendar }: Props): JSX.Element => {
             {calendarShowNext && <CalendarNext calendar={calendar} />}
           </span>
           <span className={classes.HeaderWidgets}>
-            <PiholeWidget />
-            <WeatherWidget />
+            {isAuthenticated && <PiholeWidget />}
+            {isAuthenticated && <WeatherWidget />}
           </span>
         </span>
       )}

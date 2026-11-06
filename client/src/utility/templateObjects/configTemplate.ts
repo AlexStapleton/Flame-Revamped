@@ -52,5 +52,5 @@ export const configTemplate: Config = {
   calendarShowNext: true,
   calendarShowUpcoming: true,
   calendarDays: 4,
-  calendarHideFromGuests: false,
+  calendarHideFromGuests: true,
 };

@@ -1,3 +1,10 @@
+### Unreleased
+Weather and Pi-hole are now only shown to logged-in users, and calendars are hidden from visitors by default.
+
+**Upgrade notes**
+- Visitors who aren't logged in no longer see the weather or Pi-hole widgets. This is enforced by the server, not just hidden: `/api/weather` and `/api/pihole` return nothing to them, the visitor copy of the settings leaves out the weather key, location and Pi-holes, and the live weather connection (`/socket`) only sends updates after it authenticates with the login token. There is no setting to show them to visitors.
+- Calendars are hidden from visitors by default. Existing installs are switched to hidden once on upgrade, because earlier versions stored "visible" for everyone. To show events to visitors, set Settings > Calendar > "Visitors who aren't logged in" to "See events"; that choice is kept from then on.
+
 ### v2.0.0 (2026-10-11)
 Calendar widget, and a weather widget with a 3-day forecast and alerts. The major version marks a feature milestone: there are no breaking changes, and upgrading from any 1.x release needs nothing beyond pulling the new image. Calendar setup steps are in the README under "Calendar widget".
 

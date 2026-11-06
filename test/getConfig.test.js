@@ -3,12 +3,18 @@ const assert = require('node:assert');
 const { maskConfigForViewer } = require('../controllers/config/getConfig');
 
 // Guards H2: the weather API key must never reach unauthenticated clients.
+// Weather is login-only, so guests don't even get the "configured" signal or
+// the location.
 
-test('masks the weather API key for unauthenticated viewers', () => {
-  const cfg = { WEATHER_API_KEY: 'super-secret', hideSearch: false };
+test('hides the weather key and location from unauthenticated viewers', () => {
+  const cfg = { WEATHER_API_KEY: 'super-secret', lat: 52.37, long: 4.89, hideSearch: false };
   const out = maskConfigForViewer(cfg, false);
-  assert.strictEqual(out.WEATHER_API_KEY, 'true');
+  assert.strictEqual(out.WEATHER_API_KEY, '');
+  assert.strictEqual(out.lat, 0);
+  assert.strictEqual(out.long, 0);
   assert.strictEqual(out.hideSearch, false);
+  const admin = maskConfigForViewer(cfg, true);
+  assert.strictEqual(admin.lat, 52.37);
 });
 
 test('returns the real key for authenticated viewers', () => {

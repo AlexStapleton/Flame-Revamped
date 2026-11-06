@@ -16,7 +16,6 @@ const {
   buildHandler,
   buildBlockingHandler,
   disableTimer,
-  GENERIC_ERROR,
 } = require('../controllers/pihole/getPihole');
 const { maskConfigForViewer } = require('../controllers/config/getConfig');
 const { SECRET_KEYS } = require('../utils/backup/secrets');
@@ -438,31 +437,37 @@ const runHandler = async (handler, isAuthenticated) => {
   return res;
 };
 
-test('handler hides error detail from guests', async () => {
+test('handler gives guests nothing and never contacts a Pi-hole for them', async () => {
+  let calls = 0;
   const manager = {
-    getAll: async () => [
-      { id: 'a', name: 'Main', ok: true, queries: 1 },
-      { id: 'b', name: 'Backup', ok: false, error: "Can't reach Pi-hole: connect ECONNREFUSED 10.0.0.2:80" },
-    ],
+    getAll: async () => {
+      calls++;
+      return [
+        { id: 'a', name: 'Main', ok: true, queries: 1 },
+        { id: 'b', name: 'Backup', ok: false, error: "Can't reach Pi-hole: connect ECONNREFUSED 10.0.0.2:80" },
+      ];
+    },
   };
   const handler = buildHandler({ fresh: false, manager });
   const guest = await runHandler(handler, false);
   assert.strictEqual(guest.statusCode, 200);
-  assert.strictEqual(guest.body.data[0].queries, 1);
-  assert.strictEqual(guest.body.data[1].error, GENERIC_ERROR);
+  assert.deepStrictEqual(guest.body.data, []);
+  assert.strictEqual(calls, 0);
   const admin = await runHandler(handler, true);
+  assert.strictEqual(admin.body.data[0].queries, 1);
   assert.match(admin.body.data[1].error, /10\.0\.0\.2/);
 });
 
-test('Pi-hole addresses and secrets are masked for guests; secrets are a backup secret', () => {
+test('Pi-holes and their secrets are hidden from guests; secrets are a backup secret', () => {
   const cfg = {
     piholes: [{ id: 'a', name: 'Main', url: 'http://10.0.0.2', version: 6 }],
     PIHOLE_SECRETS: { a: 'pw' },
   };
   const guest = maskConfigForViewer(cfg, false);
-  assert.deepStrictEqual(guest.piholes, [{ id: 'a', name: 'Main' }]);
+  assert.deepStrictEqual(guest.piholes, []);
   assert.deepStrictEqual(guest.PIHOLE_SECRETS, {});
   assert.deepStrictEqual(maskConfigForViewer({}, false).piholes, []);
+  assert.strictEqual(maskConfigForViewer(cfg, true).piholes[0].url, 'http://10.0.0.2');
   assert.strictEqual(maskConfigForViewer(cfg, true).PIHOLE_SECRETS.a, 'pw');
   assert.ok(SECRET_KEYS.includes('PIHOLE_SECRETS'));
 });
