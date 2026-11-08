@@ -228,13 +228,164 @@ test('titles are cleaned and capped; the event count is capped', () => {
   assert.strictEqual(events[1].title.length, 200);
 });
 
-test('a runaway rule from long ago stops instead of hanging', () => {
+test('a runaway rule from long ago is fast-forwarded to the window', () => {
   const feed = ics(
     vevent(['UID:1', 'DTSTART:19900101T000000Z', 'RRULE:FREQ=MINUTELY', 'SUMMARY:Spam'])
   );
   const started = Date.now();
-  assert.deepStrictEqual(parseEvents(feed, WINDOW), []);
+  const events = parseEvents(feed, WINDOW);
   assert.ok(Date.now() - started < 5000);
+  assert.strictEqual(events.length, 300);
+  assert.strictEqual(events[0].start, '2026-10-10T12:00:00.000Z');
+  assert.strictEqual(events[299].start, '2026-10-10T16:59:00.000Z');
+});
+
+const BIG_WINDOW = { ...WINDOW, limit: 100000 };
+const rangeStarts = (events) => events.map((e) => e.start);
+
+test('HOURLY since 2010 (UTC) reaches the window; so does MINUTELY every 15 min since 2015', () => {
+  const hourly = parseEvents(
+    ics(vevent(['UID:h', 'DTSTART:20100101T090000Z', 'RRULE:FREQ=HOURLY', 'SUMMARY:Hourly'])),
+    BIG_WINDOW
+  );
+  assert.strictEqual(hourly.length, 240);
+  assert.strictEqual(hourly[0].start, '2026-10-10T12:00:00.000Z');
+  assert.strictEqual(hourly[239].start, '2026-10-20T11:00:00.000Z');
+  const quarter = parseEvents(
+    ics(vevent(['UID:m', 'DTSTART:20150301T100700Z', 'RRULE:FREQ=MINUTELY;INTERVAL=15', 'SUMMARY:Q'])),
+    BIG_WINDOW
+  );
+  assert.strictEqual(quarter.length, 960);
+  assert.strictEqual(quarter[0].start, '2026-10-10T12:07:00.000Z');
+  assert.strictEqual(quarter[959].start, '2026-10-20T11:52:00.000Z');
+});
+
+test('HOURLY with a BYHOUR limiter keeps its limits after fast-forward', () => {
+  const events = parseEvents(
+    ics(vevent(['UID:b', 'DTSTART:20100101T090000Z', 'RRULE:FREQ=HOURLY;BYHOUR=9,10', 'SUMMARY:B'])),
+    BIG_WINDOW
+  );
+  assert.deepStrictEqual(
+    rangeStarts(events).slice(0, 3),
+    ['2026-10-11T09:00:00.000Z', '2026-10-11T10:00:00.000Z', '2026-10-12T09:00:00.000Z']
+  );
+  assert.strictEqual(events.length, 20);
+});
+
+test('fast-forward matches full iteration for zoned series across DST changes', () => {
+  const berlin = `BEGIN:VTIMEZONE
+TZID:Europe/Berlin
+BEGIN:STANDARD
+DTSTART:19701025T030000
+RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU
+TZOFFSETFROM:+0200
+TZOFFSETTO:+0100
+END:STANDARD
+BEGIN:DAYLIGHT
+DTSTART:19700329T020000
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU
+TZOFFSETFROM:+0100
+TZOFFSETTO:+0200
+END:DAYLIGHT
+END:VTIMEZONE`;
+  const windows = [
+    { from: Date.UTC(2026, 9, 24), to: Date.UTC(2026, 9, 27) }, // Europe falls back 25 Oct
+    { from: Date.UTC(2026, 2, 28), to: Date.UTC(2026, 3, 1) }, // and springs forward 29 Mar
+  ];
+  const cases = [
+    ['Europe/Berlin', berlin, 'FREQ=HOURLY'],
+    ['Europe/Berlin', berlin, 'FREQ=HOURLY;INTERVAL=5;BYHOUR=1,2,3,8'],
+    ['Europe/Berlin', '', 'FREQ=HOURLY;INTERVAL=3'], // zone named but not defined
+    ['Europe/Berlin', berlin, 'FREQ=MINUTELY;INTERVAL=45;BYSECOND=0,30'],
+  ];
+  for (const [tz, vtz, rule] of cases) {
+    const feed = ics(
+      vtz,
+      vevent([
+        'UID:z',
+        `DTSTART;TZID=${tz}:20230115T093000`,
+        `DTEND;TZID=${tz}:20230115T100000`,
+        `RRULE:${rule}`,
+        'SUMMARY:Z',
+      ])
+    );
+    for (const w of windows) {
+      const opts = { ...w, limit: 100000, maxIterations: 2e6 };
+      const full = parseEvents(feed, { ...opts, fastForward: false });
+      assert.ok(full.length > 0, rule);
+      assert.deepStrictEqual(parseEvents(feed, opts), full, `${rule} ${w.from}`);
+    }
+  }
+});
+
+test('EXDATE, RDATE and RECURRENCE-ID overrides still apply after fast-forward', () => {
+  const feed = ics(
+    vevent([
+      'UID:x',
+      'DTSTART:20100101T090000Z',
+      'RRULE:FREQ=HOURLY',
+      'EXDATE:20261012T100000Z',
+      'RDATE:20261013T123456Z',
+      'SUMMARY:X',
+    ]),
+    vevent([
+      'UID:x',
+      'RECURRENCE-ID:20261014T100000Z',
+      'DTSTART:20261014T223000Z',
+      'SUMMARY:X moved',
+    ]),
+    vevent(['UID:x', 'RECURRENCE-ID:20261015T100000Z', 'DTSTART:20261015T100000Z', 'STATUS:CANCELLED', 'SUMMARY:X'])
+  );
+  const events = parseEvents(feed, BIG_WINDOW);
+  const starts = rangeStarts(events);
+  assert.ok(!starts.includes('2026-10-12T10:00:00.000Z'), 'EXDATE');
+  assert.ok(starts.includes('2026-10-12T09:00:00.000Z'));
+  assert.ok(starts.includes('2026-10-13T12:34:56.000Z'), 'RDATE');
+  assert.ok(!starts.includes('2026-10-14T10:00:00.000Z'), 'moved away');
+  assert.strictEqual(events.find((e) => e.start === '2026-10-14T22:30:00.000Z').title, 'X moved');
+  assert.ok(!starts.includes('2026-10-15T10:00:00.000Z'), 'cancelled');
+  // 240 slots - EXDATE - moved - cancelled + RDATE + moved-in
+  assert.strictEqual(events.length, 240 - 3 + 2);
+});
+
+test('an old override moved into the window is still found when fast-forwarding', () => {
+  const feed = ics(
+    vevent(['UID:o', 'DTSTART:20100101T090000Z', 'RRULE:FREQ=HOURLY', 'SUMMARY:O']),
+    vevent([
+      'UID:o',
+      'RECURRENCE-ID:20200301T100000Z',
+      'DTSTART:20261012T000000Z',
+      'SUMMARY:Old moved in',
+    ])
+  );
+  const events = parseEvents(feed, { ...WINDOW, limit: 100000, maxIterations: 2e6 });
+  assert.strictEqual(events.filter((e) => e.title === 'Old moved in').length, 1);
+  assert.deepStrictEqual(
+    events,
+    parseEvents(feed, { ...WINDOW, limit: 100000, maxIterations: 2e6, fastForward: false })
+  );
+});
+
+test('a series that still exhausts the iteration cap is reported, not silently cut', async () => {
+  // COUNT depends on the original start, so it cannot be fast-forwarded.
+  const feed = ics(
+    vevent(['UID:cnt@t', 'DTSTART:20200101T000000Z', 'RRULE:FREQ=HOURLY;COUNT=100000', 'SUMMARY:C'])
+  );
+  const seen = [];
+  assert.deepStrictEqual(parseEvents(feed, { ...WINDOW, onTruncated: (u) => seen.push(u) }), []);
+  assert.deepStrictEqual(seen, [['cnt@t']]);
+
+  // One warning per refresh naming the calendar and the UID.
+  const warned = [];
+  const client = createCalendarClient({
+    now: () => NOW,
+    fetchText: async () => feed,
+    onWarn: (m) => warned.push(m),
+  });
+  await client.getEvents('u', { label: 'cal1 (Work)' });
+  assert.strictEqual(warned.length, 1);
+  assert.match(warned[0], /cal1 \(Work\)/);
+  assert.match(warned[0], /cnt@t/);
 });
 
 test('something that is not iCal gives a clear CalendarError', () => {

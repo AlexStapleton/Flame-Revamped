@@ -216,10 +216,71 @@ const toOutput = (item, startTime, endTime, from, to, fallbackTz) => {
   };
 };
 
+// RRULE parts that only restrict a sub-daily series (RFC 5545 3.3.10 table)
+// or expand it within each period; none of them depends on how many periods
+// have passed since DTSTART.
+const FF_PARTS = new Set(['BYMONTH', 'BYMONTHDAY', 'BYYEARDAY', 'BYDAY', 'BYHOUR', 'BYMINUTE', 'BYSECOND']);
+const SUBDAILY_SECONDS = { SECONDLY: 1, MINUTELY: 60, HOURLY: 3600 };
+
+// ical.js has no way to jump ahead, and a sub-daily series that started years
+// ago would burn the whole iteration cap before reaching today. For a rule
+// whose occurrences form a fixed lattice (no COUNT, no BYSETPOS, a single
+// RRULE) iteration can instead start from DTSTART moved forward by a whole
+// number of periods (k * INTERVAL * unit) of wall-clock time. ical.js steps
+// such rules in the event's wall-clock fields (the zone only matters when an
+// occurrence is turned into an instant), so the shifted start walks the same
+// lattice, with the same limiters, as the original would at that point. That
+// is checked against full iteration in the tests, including across DST.
+// Returns the shifted DTSTART, or null to iterate from the real DTSTART.
+// `beforeMs` is the instant before which no occurrence matters.
+const fastForwardStart = (master, beforeMs) => {
+  const rules = master.component.getAllProperties('rrule');
+  if (rules.length !== 1) return null;
+  const rule = rules[0].getFirstValue();
+  const unit = rule && SUBDAILY_SECONDS[rule.freq];
+  if (!unit || rule.count) return null;
+  for (const [name, values] of Object.entries(rule.parts || {})) {
+    if (!FF_PARTS.has(name)) return null;
+    // "1MO"-style ordinals are not a plain limiter.
+    if (name === 'BYDAY' && values.some((v) => !/^[A-Z]{2}$/.test(String(v)))) return null;
+  }
+  const start = master.startDate;
+  if (!start || start.isDate) return null;
+
+  // Overrides of old occurrences are found by iterating over their slot, so
+  // never jump past one.
+  let limitMs = beforeMs;
+  for (const ex of Object.values(master.exceptions)) {
+    const rid = ex.recurrenceId;
+    if (!rid) return null;
+    limitMs = Math.min(limitMs, rid.toUnixTime() * 1000 - SKEW_MARGIN_MS);
+  }
+
+  const step = (rule.interval || 1) * unit;
+  const periods = Math.floor((limitMs / 1000 - start.toUnixTime()) / step);
+  if (!Number.isFinite(periods) || periods < 1) return null;
+  const shifted = start.clone();
+  shifted.adjust(0, 0, 0, periods * step);
+  return shifted;
+};
+
 // Parse an iCal feed and list the events (recurring ones expanded) that
 // overlap [from, to) (epoch ms). Throws CalendarError on a feed that isn't
 // iCal. Pure apart from registering the feed's VTIMEZONEs with ical.js.
-const parseEvents = (text, { from, to, limit = MAX_EVENTS_PER_CALENDAR } = {}) => {
+const parseEvents = (
+  text,
+  {
+    from,
+    to,
+    limit = MAX_EVENTS_PER_CALENDAR,
+    // Called once with the UIDs of series that hit the iteration cap before
+    // reaching the end of the window (their later events are missing).
+    onTruncated = null,
+    // Test hooks: raise the cap, or turn the fast-forward off to compare.
+    maxIterations = MAX_ITERATIONS,
+    fastForward = true,
+  } = {}
+) => {
   if (typeof text !== 'string' || !/BEGIN:VCALENDAR/i.test(text)) {
     throw new CalendarError('Link did not return an iCal calendar');
   }
@@ -275,16 +336,8 @@ const parseEvents = (text, { from, to, limit = MAX_EVENTS_PER_CALENDAR } = {}) =
     if (e) out.push(e);
   }
 
+  const truncated = [];
   for (const master of masters.values()) {
-    let iterator;
-    try {
-      iterator = master.iterator();
-    } catch {
-      continue;
-    }
-    // Occurrences come in start order, but a moved occurrence can land later
-    // than its slot, so keep going a little past the window.
-    const stopAt = to + 7 * 24 * 60 * 60 * 1000;
     const seriesTz = master.startDate.timezone;
     let skipBefore = null;
     try {
@@ -293,6 +346,16 @@ const parseEvents = (text, { from, to, limit = MAX_EVENTS_PER_CALENDAR } = {}) =
     } catch {
       // No usable duration: do the full conversion for every occurrence.
     }
+    let iterator;
+    try {
+      const start = fastForward && skipBefore !== null ? fastForwardStart(master, skipBefore) : null;
+      iterator = start ? master.iterator(start) : master.iterator();
+    } catch {
+      continue;
+    }
+    // Occurrences come in start order, but a moved occurrence can land later
+    // than its slot, so keep going a little past the window.
+    const stopAt = to + 7 * 24 * 60 * 60 * 1000;
     const exceptionIds = Object.keys(master.exceptions);
     const hasRangeExceptions = master.rangeExceptions.length > 0;
     const isOverridden = (t) => {
@@ -303,14 +366,19 @@ const parseEvents = (text, { from, to, limit = MAX_EVENTS_PER_CALENDAR } = {}) =
         t.convertToZone(ICAL.Timezone.utcTimezone).toString() in master.exceptions
       );
     };
-    for (let i = 0; i < MAX_ITERATIONS; i++) {
+    let reachedEnd = false;
+    for (let i = 0; i < maxIterations; i++) {
       let next;
       try {
         next = iterator.next();
       } catch {
+        reachedEnd = true;
         break;
       }
-      if (!next) break;
+      if (!next) {
+        reachedEnd = true;
+        break;
+      }
       // Cheap pre-check for occurrences that clearly ended before the window:
       // the raw UTC value is off by at most a zone offset (< 1 day), so with a
       // day of margin plus the event's length nothing visible is skipped.
@@ -318,7 +386,10 @@ const parseEvents = (text, { from, to, limit = MAX_EVENTS_PER_CALENDAR } = {}) =
       if (skipBefore !== null && next.toUnixTime() * 1000 < skipBefore && !isOverridden(next)) {
         continue;
       }
-      if (convertTime(next, seriesTz).ms >= stopAt) break;
+      if (convertTime(next, seriesTz).ms >= stopAt) {
+        reachedEnd = true;
+        break;
+      }
       let details;
       try {
         details = master.getOccurrenceDetails(next);
@@ -335,10 +406,19 @@ const parseEvents = (text, { from, to, limit = MAX_EVENTS_PER_CALENDAR } = {}) =
       );
       if (e) out.push(e);
     }
+    if (!reachedEnd) truncated.push(String(master.uid));
   }
+  if (truncated.length && onTruncated) onTruncated(truncated);
 
   out.sort((a, b) => a.sortMs - b.sortMs || a.title.localeCompare(b.title));
   return out.slice(0, limit);
+};
+
+// One log line per calendar refresh, never the feed URL (it is a secret).
+const truncationMessage = (label, uids) => {
+  const shown = uids.slice(0, 3).join(', ');
+  const more = uids.length > 3 ? ` and ${uids.length - 3} more` : '';
+  return `Calendar ${label}: recurring event(s) ${shown}${more} hit the ${MAX_ITERATIONS}-occurrence limit before the end of the visible window; later occurrences are missing`;
 };
 
 // Client for ONE calendar: caches the expanded events so many open dashboards
@@ -348,11 +428,12 @@ const createCalendarClient = ({
   now = Date.now,
   ttlMs = CACHE_TTL_MS,
   onError = (err) => logger.log(`Calendar: ${err.message}`, 'WARN'),
+  onWarn = (message) => logger.log(message, 'WARN'),
 } = {}) => {
   let cache = null; // { at, url, value } or { at, url, error }
   let inFlight = null;
 
-  const load = async (url) => {
+  const load = async (url, label) => {
     const at = now();
     let text;
     try {
@@ -361,18 +442,22 @@ const createCalendarClient = ({
       if (err instanceof CalendarError) throw err;
       throw new CalendarError("Can't reach the calendar");
     }
-    return parseEvents(text, { from: at - WINDOW_BEFORE_MS, to: at + WINDOW_AFTER_MS });
+    return parseEvents(text, {
+      from: at - WINDOW_BEFORE_MS,
+      to: at + WINDOW_AFTER_MS,
+      onTruncated: (uids) => onWarn(truncationMessage(label, uids)),
+    });
   };
 
   // Resolves to the events (without sortMs), throws CalendarError on failure.
-  const getEvents = async (url, { fresh = false } = {}) => {
+  const getEvents = async (url, { fresh = false, label = 'calendar' } = {}) => {
     if (!fresh && cache && cache.url === url && now() - cache.at < ttlMs) {
       if (cache.error) throw cache.error;
       return cache.value;
     }
     if (inFlight && inFlight.url === url) return inFlight.promise;
 
-    const promise = load(url)
+    const promise = load(url, label)
       .then((events) => {
         const value = events.map(({ sortMs, ...e }) => e);
         cache = { at: now(), url, value };
@@ -454,7 +539,7 @@ const createCalendarManager = ({
       calendars.map(async ({ id, name, color, url }) => {
         if (!clients.has(id)) clients.set(id, clientFactory());
         try {
-          const events = await clients.get(id).getEvents(url, { fresh });
+          const events = await clients.get(id).getEvents(url, { fresh, label: `${id} (${name})` });
           return { calendar: { id, name, color, ok: true }, events };
         } catch (err) {
           if (!(err instanceof CalendarError)) throw err;
