@@ -1,7 +1,7 @@
 import { ActionType } from '../action-types';
 import { Action } from '../actions/index';
 import { App } from '../../interfaces';
-import { sortData } from '../../utility';
+import { reuseData, sortData } from '../../utility';
 
 interface AppsState {
   loading: boolean;
@@ -23,9 +23,11 @@ export const appsReducer = (
 ): AppsState => {
   switch (action.type) {
     case ActionType.getApps: {
+      // `loading` only covers the first load. A refresh (the admin poll, a
+      // return to the tab) keeps the grid on screen instead of swapping it for
+      // a spinner and remounting every card.
       return {
         ...state,
-        loading: true,
         errors: undefined,
       };
     }
@@ -34,7 +36,7 @@ export const appsReducer = (
       return {
         ...state,
         loading: false,
-        apps: action.payload || [],
+        apps: reuseData(state.apps, action.payload || []),
       };
     }
 
