@@ -23,6 +23,8 @@ const WINDOW_BEFORE_MS = 24 * 60 * 60 * 1000;
 const WINDOW_AFTER_MS = 9 * 24 * 60 * 60 * 1000;
 // Guards against runaway rules (e.g. a minutely RRULE from 1990).
 const MAX_ITERATIONS = 50000;
+// Slack for comparing a raw UTC value with a zone-aware one (offsets < 1 day).
+const SKEW_MARGIN_MS = 24 * 60 * 60 * 1000;
 const MAX_EVENTS_PER_CALENDAR = 300;
 const MAX_TITLE_LENGTH = 200;
 const MAX_CALENDARS = 10;
@@ -85,18 +87,40 @@ const fetchFeed = async (url) => {
   return Buffer.concat(chunks).toString('utf8');
 };
 
+// One formatter per zone: constructing an Intl.DateTimeFormat is slow (~50us)
+// and used to happen once per recurrence occurrence. Zones are few, but the
+// names come from feeds, so both caches are bounded. A null entry means "not
+// an IANA zone".
+const MAX_ZONE_CACHE = 100;
+const zoneFormatters = new Map();
+
+const zoneFormatter = (tz) => {
+  if (zoneFormatters.has(tz)) return zoneFormatters.get(tz);
+  let formatter = null;
+  if (typeof tz === 'string' && tz) {
+    try {
+      formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: tz,
+        hourCycle: 'h23',
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: 'numeric',
+        second: 'numeric',
+      });
+    } catch {
+      formatter = null;
+    }
+  }
+  if (zoneFormatters.size >= MAX_ZONE_CACHE) zoneFormatters.clear();
+  zoneFormatters.set(tz, formatter);
+  return formatter;
+};
+
 // Offset of `timeZone` from UTC at the instant `ms`, in ms. Pure.
 const tzOffsetMs = (ms, timeZone) => {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    hourCycle: 'h23',
-    year: 'numeric',
-    month: 'numeric',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: 'numeric',
-    second: 'numeric',
-  }).formatToParts(new Date(ms));
+  const parts = zoneFormatter(timeZone).formatToParts(new Date(ms));
   const get = (type) => Number(parts.find((p) => p.type === type).value);
   const asUtc = Date.UTC(
     get('year'),
@@ -109,15 +133,7 @@ const tzOffsetMs = (ms, timeZone) => {
   return asUtc - Math.floor(ms / 1000) * 1000;
 };
 
-const isIanaZone = (tz) => {
-  if (typeof tz !== 'string' || !tz) return false;
-  try {
-    new Intl.DateTimeFormat('en-US', { timeZone: tz });
-    return true;
-  } catch {
-    return false;
-  }
-};
+const isIanaZone = (tz) => zoneFormatter(tz) !== null;
 
 // Wall-clock time in an IANA zone -> epoch ms. Pure.
 const wallTimeToMs = (t, timeZone) => {
@@ -270,6 +286,23 @@ const parseEvents = (text, { from, to, limit = MAX_EVENTS_PER_CALENDAR } = {}) =
     // than its slot, so keep going a little past the window.
     const stopAt = to + 7 * 24 * 60 * 60 * 1000;
     const seriesTz = master.startDate.timezone;
+    let skipBefore = null;
+    try {
+      const durationMs = Math.max(0, master.duration.toSeconds() * 1000);
+      if (Number.isFinite(durationMs)) skipBefore = from - durationMs - SKEW_MARGIN_MS;
+    } catch {
+      // No usable duration: do the full conversion for every occurrence.
+    }
+    const exceptionIds = Object.keys(master.exceptions);
+    const hasRangeExceptions = master.rangeExceptions.length > 0;
+    const isOverridden = (t) => {
+      if (hasRangeExceptions) return true;
+      if (!exceptionIds.length) return false;
+      return (
+        t.toString() in master.exceptions ||
+        t.convertToZone(ICAL.Timezone.utcTimezone).toString() in master.exceptions
+      );
+    };
     for (let i = 0; i < MAX_ITERATIONS; i++) {
       let next;
       try {
@@ -278,6 +311,13 @@ const parseEvents = (text, { from, to, limit = MAX_EVENTS_PER_CALENDAR } = {}) =
         break;
       }
       if (!next) break;
+      // Cheap pre-check for occurrences that clearly ended before the window:
+      // the raw UTC value is off by at most a zone offset (< 1 day), so with a
+      // day of margin plus the event's length nothing visible is skipped.
+      // Occurrences with an override are never skipped (they may move).
+      if (skipBefore !== null && next.toUnixTime() * 1000 < skipBefore && !isOverridden(next)) {
+        continue;
+      }
       if (convertTime(next, seriesTz).ms >= stopAt) break;
       let details;
       try {

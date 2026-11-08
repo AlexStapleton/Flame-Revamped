@@ -178,6 +178,35 @@ test('a series in a zone without a VTIMEZONE keeps its zone across DST', () => {
   );
 });
 
+test('a long-running series in an unknown-VTIMEZONE zone is fast and exact; old overrides moved into the window show', () => {
+  const feed = ics(
+    vevent([
+      'UID:d@t',
+      'DTSTART;TZID=Europe/Berlin:20100101T090000',
+      'DTEND;TZID=Europe/Berlin:20100101T100000',
+      'RRULE:FREQ=DAILY',
+      'SUMMARY:Daily',
+    ]),
+    // An occurrence from years ago that was moved into the window.
+    vevent([
+      'UID:d@t',
+      'RECURRENCE-ID;TZID=Europe/Berlin:20130301T090000',
+      'DTSTART;TZID=Europe/Berlin:20261012T200000',
+      'DTEND;TZID=Europe/Berlin:20261012T210000',
+      'SUMMARY:Moved in',
+    ])
+  );
+  const started = Date.now();
+  const events = parseEvents(feed, WINDOW);
+  assert.ok(Date.now() - started < 3000);
+  // Berlin is on CEST (UTC+2) until 25 Oct 2026. Window: Oct 10 12:00Z - Oct 20 12:00Z.
+  const starts = events.map((e) => e.start);
+  assert.strictEqual(starts[0], '2026-10-11T07:00:00.000Z');
+  assert.ok(starts.includes('2026-10-12T18:00:00.000Z'));
+  assert.strictEqual(events.find((e) => e.title === 'Moved in').start, '2026-10-12T18:00:00.000Z');
+  assert.strictEqual(events.length, 11);
+});
+
 test('an event already in progress and a multi-day event overlapping the window are kept', () => {
   const feed = ics(
     vevent(['UID:1', 'DTSTART:20261009T000000Z', 'DTEND:20261012T000000Z', 'SUMMARY:Trip']),
