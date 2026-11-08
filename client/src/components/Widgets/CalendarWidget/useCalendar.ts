@@ -9,17 +9,15 @@ import { TimedEvent, toTimed } from './calendarTime';
 // The server caches each calendar for 5 minutes, so polling faster gains
 // nothing.
 const REFRESH_MS = 5 * 60 * 1000;
-// How often "in 2h 15m" and "Today" are recomputed.
-const TICK_MS = 30 * 1000;
 
 export interface CalendarState {
   data: CalendarData | null;
   events: TimedEvent[];
-  now: number;
 }
 
 // Fetches GET /api/calendar for the homescreen (the header line and the
-// Upcoming section share one request). Polls only while the tab is visible
+// Upcoming section share one request). The clock for "in 2h 15m" lives in
+// the consumers (useNow), so a tick doesn't re-render Home. Polls only while the tab is visible
 // and either part is switched on.
 export const useCalendar = (): CalendarState => {
   const { loading, config } = useSelector((state: State) => state.config);
@@ -38,7 +36,6 @@ export const useCalendar = (): CalendarState => {
     : '';
 
   const [data, setData] = useState<CalendarData | null>(null);
-  const [now, setNow] = useState<number>(Date.now());
 
   useEffect(() => {
     if (!enabled) {
@@ -48,7 +45,6 @@ export const useCalendar = (): CalendarState => {
 
     let cancelled = false;
     let poll: number | null = null;
-    let tick: number | null = null;
 
     const load = () => {
       http
@@ -63,17 +59,13 @@ export const useCalendar = (): CalendarState => {
 
     const start = () => {
       if (poll !== null) return;
-      setNow(Date.now());
       load();
       poll = window.setInterval(load, REFRESH_MS);
-      tick = window.setInterval(() => setNow(Date.now()), TICK_MS);
     };
 
     const stop = () => {
       if (poll !== null) window.clearInterval(poll);
-      if (tick !== null) window.clearInterval(tick);
       poll = null;
-      tick = null;
     };
 
     const onVisibilityChange = () =>
@@ -97,5 +89,6 @@ export const useCalendar = (): CalendarState => {
     [data]
   );
 
-  return { data, events, now };
+  // Stable between fetches, so memoized consumers don't re-render with Home.
+  return useMemo(() => ({ data, events }), [data, events]);
 };

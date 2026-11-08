@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, memo } from 'react';
 import classes from './AppGrid.module.css';
 import { Link } from 'react-router-dom';
 import { App } from '../../../interfaces/App';
@@ -30,7 +30,7 @@ interface Props {
   sortable?: boolean;
 }
 
-export const AppGrid = (props: Props): JSX.Element => {
+const AppGridComponent = (props: Props): JSX.Element => {
   // Empty states (unchanged from the presentational version).
   if (!(props.searching || props.apps.length)) {
     return props.totalApps ? (
@@ -66,3 +66,5 @@ export const AppGrid = (props: Props): JSX.Element => {
     </Suspense>
   );
 };
+
+export const AppGrid = memo(AppGridComponent);
