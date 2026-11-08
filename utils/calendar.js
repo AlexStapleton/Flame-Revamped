@@ -234,7 +234,9 @@ const parseEvents = (text, { from, to, limit = MAX_EVENTS_PER_CALENDAR } = {}) =
   for (const vevent of vevents) {
     let event;
     try {
-      event = new ICAL.Event(vevent);
+      // `exceptions: []` stops ical.js rescanning every sibling VEVENT for
+      // RECURRENCE-IDs on each construction (quadratic); we relate them below.
+      event = new ICAL.Event(vevent, { exceptions: [] });
     } catch {
       continue;
     }

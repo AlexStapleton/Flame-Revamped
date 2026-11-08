@@ -92,6 +92,30 @@ test('recurring events: expanded, EXDATE skipped, overrides moved, cancelled dro
   assert.strictEqual(events[0].allDay, false);
 });
 
+test('exceptions attach only to their own series (weekly, one moved, one cancelled)', () => {
+  const series = (uid, title, extra) => [
+    vevent([`UID:${uid}`, 'DTSTART:20260105T100000Z', 'DTEND:20260105T110000Z', 'RRULE:FREQ=WEEKLY', `SUMMARY:${title}`]),
+    ...extra,
+  ];
+  const feed = ics(
+    ...series('a@t', 'A', [
+      vevent(['UID:a@t', 'RECURRENCE-ID:20261012T100000Z', 'DTSTART:20261013T150000Z', 'DTEND:20261013T160000Z', 'SUMMARY:A moved']),
+    ]),
+    ...series('b@t', 'B', [
+      vevent(['UID:b@t', 'RECURRENCE-ID:20261012T100000Z', 'DTSTART:20261012T100000Z', 'STATUS:CANCELLED', 'SUMMARY:B']),
+    ])
+  );
+  const events = parseEvents(feed, WINDOW);
+  assert.deepStrictEqual(
+    events.map((e) => [e.start, e.title]),
+    [
+      ['2026-10-13T15:00:00.000Z', 'A moved'],
+      ['2026-10-19T10:00:00.000Z', 'A'],
+      ['2026-10-19T10:00:00.000Z', 'B'],
+    ]
+  );
+});
+
 test('all-day, UTC, unknown TZID, floating and Windows-named zones', () => {
   const feed = ics(
     vtimezone('Pacific Standard Time'),
