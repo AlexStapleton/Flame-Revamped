@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment } from 'react';
+import { useState, useEffect, Fragment, memo } from 'react';
 import { http } from '../../../utility/http';
 import { applyAuth } from '../../../utility/applyAuth';
 
@@ -30,7 +30,7 @@ import {
   wind,
 } from './format';
 
-export const WeatherWidget = (): JSX.Element => {
+const WeatherWidgetComponent = (): JSX.Element => {
   const { loading: configLoading, config } = useSelector(
     (state: State) => state.config
   );
@@ -312,3 +312,5 @@ export const WeatherWidget = (): JSX.Element => {
     </div>
   );
 };
+
+export const WeatherWidget = memo(WeatherWidgetComponent);

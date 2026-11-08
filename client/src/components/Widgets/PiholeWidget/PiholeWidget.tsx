@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, memo, useEffect, useState } from 'react';
 import { Icon as MDIcon } from '@mdi/react';
 import { mdiShieldCheck, mdiShieldOff } from '@mdi/js';
 
@@ -49,7 +49,7 @@ const pauseLabel = (seconds: number): string => {
 };
 
 // One row per configured Pi-hole, under a shared header of column labels.
-export const PiholeWidget = (): JSX.Element | null => {
+const PiholeWidgetComponent = (): JSX.Element | null => {
   const { loading: configLoading, config } = useSelector(
     (state: State) => state.config
   );
@@ -221,3 +221,5 @@ export const PiholeWidget = (): JSX.Element | null => {
     </div>
   );
 };
+
+export const PiholeWidget = memo(PiholeWidgetComponent);

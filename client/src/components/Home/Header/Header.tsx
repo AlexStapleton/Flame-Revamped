@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 // Redux
@@ -14,9 +13,7 @@ import { PiholeWidget } from '../../Widgets/PiholeWidget/PiholeWidget';
 import { CalendarNext } from '../../Widgets/CalendarWidget/CalendarNext';
 import { CalendarState } from '../../Widgets/CalendarWidget/useCalendar';
 
-// Utils
-import { getDateTime } from './functions/getDateTime';
-import { greeter } from './functions/greeter';
+import { DateTime, Greeting } from './Clock';
 
 interface Props {
   // Shared with the Upcoming section, so both use one request.
@@ -33,23 +30,9 @@ export const Header = ({ calendar }: Props): JSX.Element => {
     (state: State) => state.auth.isAuthenticated
   );
 
-  const [dateTime, setDateTime] = useState<string>(getDateTime());
-  const [greeting, setGreeting] = useState<string>(greeter());
-
-  useEffect(() => {
-    let dateTimeInterval: ReturnType<typeof setInterval>;
-
-    dateTimeInterval = setInterval(() => {
-      setDateTime(getDateTime());
-      setGreeting(greeter());
-    }, 1000);
-
-    return () => window.clearInterval(dateTimeInterval);
-  }, []);
-
   return (
     <header className={classes.Header}>
-      {(!hideDate || showTime) && <p>{dateTime}</p>}
+      {(!hideDate || showTime) && <DateTime />}
 
       <Link to="/settings" className={classes.SettingsLink}>
         Go to Settings
@@ -58,7 +41,7 @@ export const Header = ({ calendar }: Props): JSX.Element => {
       {!hideHeader && (
         <span className={classes.HeaderMain}>
           <span className={classes.HeaderGreeting}>
-            <h1>{greeting}</h1>
+            <Greeting />
             {calendarShowNext && <CalendarNext calendar={calendar} />}
           </span>
           <span className={classes.HeaderWidgets}>
