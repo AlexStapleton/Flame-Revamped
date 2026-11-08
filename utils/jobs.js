@@ -40,10 +40,13 @@ module.exports = async function () {
     logger.log(`Startup weather refresh failed: ${err.message}`, 'ERROR')
   );
 
-  // Clear old weather data every 4 hours
-  schedule.scheduleJob('clearWeather', '0 5 */4 * * *', async () => {
-    clearWeatherData();
-  });
+  // Legacy weather rows are pruned once at startup, not on a schedule. The
+  // fetch path keeps a single row updated in place, so only rows left over
+  // from older versions ever need removing. server.js runs jobs() after
+  // connectDB().
+  clearWeatherData().catch((err) =>
+    logger.log(`Weather cleanup failed: ${err.message}`, 'ERROR')
+  );
 
   // Sync Docker/Kubernetes apps once a minute, but only while a dashboard is
   // being viewed (same idle window as status checks) and never overlapping a
