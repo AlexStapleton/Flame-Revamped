@@ -1,3 +1,16 @@
+### Unreleased
+Weather and Pi-hole are now only shown to logged-in users, and calendars are hidden from visitors by default.
+
+**Upgrade notes**
+- Visitors who aren't logged in no longer see the weather or Pi-hole widgets. This is enforced by the server, not just hidden: `/api/weather` and `/api/pihole` return nothing to them, the visitor copy of the settings leaves out the weather key, location and Pi-holes, and the live weather connection (`/socket`) only sends updates after it authenticates with the login token. There is no setting to show them to visitors.
+- Calendars are hidden from visitors by default. Existing installs are switched to hidden once on upgrade, because earlier versions stored "visible" for everyone. To show events to visitors, set Settings > Calendar > "Visitors who aren't logged in" to "See events"; that choice is kept from then on.
+
+**Performance**
+- Calendars: a large feed (several years of history) could freeze the whole server while it was parsed, for up to about a minute on a 10 MB feed, every 5 minutes. Parsing is now about 100 times faster (10 MB: 46 s to 0.5 s). Each calendar is cached for 15 minutes, a feed that hasn't changed (HTTP 304 or identical content) isn't parsed again, and calendars are parsed one at a time.
+- Calendars: hourly and minutely repeating events that started years ago now show up. Before, they showed no events at all. A series that is still too long to expand logs a warning instead of being cut off silently.
+- The app grid no longer flashes to a spinner and back every minute while logged in, and the header clock no longer re-renders the widgets every second.
+- The weather is only fetched from WeatherAPI while a dashboard is open, and refreshed when one is opened. The Pi-hole widget's two v6 requests run in parallel. Browser requests time out after 15 seconds, and polls no longer pile up.
+
 ### v2.0.0 (2026-10-11)
 Calendar widget, and a weather widget with a 3-day forecast and alerts. The major version marks a feature milestone: there are no breaking changes, and upgrading from any 1.x release needs nothing beyond pulling the new image. Calendar setup steps are in the README under "Calendar widget".
 

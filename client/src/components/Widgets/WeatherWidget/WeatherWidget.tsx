@@ -1,5 +1,6 @@
-import { useState, useEffect, Fragment } from 'react';
+import { useState, useEffect, Fragment, memo } from 'react';
 import { http } from '../../../utility/http';
+import { applyAuth } from '../../../utility/applyAuth';
 
 // Redux
 import { useSelector } from 'react-redux';
@@ -29,7 +30,7 @@ import {
   wind,
 } from './format';
 
-export const WeatherWidget = (): JSX.Element => {
+const WeatherWidgetComponent = (): JSX.Element => {
   const { loading: configLoading, config } = useSelector(
     (state: State) => state.config
   );
@@ -45,7 +46,8 @@ export const WeatherWidget = (): JSX.Element => {
   // it spends no API call.
   const loadWeather = () =>
     http
-      .get<ApiResponse<Weather[]>>('/api/weather')
+      // Weather is only for logged-in users, so the request must carry the token.
+      .get<ApiResponse<Weather[]>>('/api/weather', { headers: applyAuth() })
       .then((data) => {
         const weatherData = data.data.data[0];
         if (weatherData) {
@@ -70,6 +72,9 @@ export const WeatherWidget = (): JSX.Element => {
 
     const BASE_DELAY_MS = 1000;
     const MAX_DELAY_MS = 60000;
+    // Server close code for a missing or rejected token (see Socket.js).
+    // Retrying with the same token can't succeed, so don't reconnect.
+    const CLOSE_AUTH_FAILED = 4401;
 
     let socket: WebSocket | null = null;
     let retryTimer: number | null = null;
@@ -99,10 +104,15 @@ export const WeatherWidget = (): JSX.Element => {
 
     const connect = () => {
       if (unmounted || socket) return;
+      // Weather is only for logged-in users: the server sends nothing until
+      // the socket authenticates with the login token.
+      const token = localStorage.getItem('token');
+      if (!token) return;
       const client = new WebSocket(socketAddress);
       socket = client;
 
       client.onopen = () => {
+        client.send(JSON.stringify({ type: 'auth', token }));
         attempts = 0;
         // Reconnected: catch up on anything pushed while disconnected.
         if (hasConnected) loadWeather();
@@ -117,8 +127,9 @@ export const WeatherWidget = (): JSX.Element => {
         }));
       };
 
-      client.onclose = () => {
+      client.onclose = (e) => {
         if (socket === client) socket = null;
+        if (e.code === CLOSE_AUTH_FAILED) return;
         scheduleReconnect();
       };
     };
@@ -301,3 +312,5 @@ export const WeatherWidget = (): JSX.Element => {
     </div>
   );
 };
+
+export const WeatherWidget = memo(WeatherWidgetComponent);

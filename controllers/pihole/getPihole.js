@@ -3,27 +3,23 @@ const ErrorResponse = require('../../utils/ErrorResponse');
 const loadConfig = require('../../utils/loadConfig');
 const { piholes } = require('../../utils/pihole');
 
-// Guests only learn that a Pi-hole is unreachable. The detailed reason can name
-// the Pi-hole host or address, so it is reserved for the logged-in admin.
-const GENERIC_ERROR = 'Pi-hole is unreachable';
-
 // One entry per configured Pi-hole, each with its own ok/error, so one down
 // Pi-hole doesn't hide the others. Failures are logged by the client, once per
-// real round trip, not once per poll.
+// real round trip, not once per poll. Pi-hole stats are only for logged-in
+// users: guests get an empty list (not an error, so the homescreen loads
+// normally) and Flame doesn't contact any Pi-hole on their behalf.
 const buildHandler = ({ fresh, manager = piholes }) =>
   asyncWrapper(async (req, res) => {
+    if (!req.isAuthenticated) {
+      return res.status(200).json({ success: true, data: [] });
+    }
     const results = await manager.getAll({ fresh });
-    res.status(200).json({
-      success: true,
-      data: req.isAuthenticated
-        ? results
-        : results.map((r) => (r.ok ? r : { ...r, error: GENERIC_ERROR })),
-    });
+    res.status(200).json({ success: true, data: results });
   });
 
 // @desc      Get Pi-hole summaries (each cached for 30 seconds)
 // @route     GET /api/pihole
-// @access    Public (error details only for the admin)
+// @access    Logged-in users (guests get an empty list)
 const getPihole = buildHandler({ fresh: false });
 
 // @desc      Fetch Pi-hole summaries now, bypassing the cache
@@ -72,5 +68,4 @@ module.exports = {
   buildHandler,
   buildBlockingHandler,
   disableTimer,
-  GENERIC_ERROR,
 };

@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment } from 'react';
+import { useState, useEffect, useMemo, Fragment } from 'react';
 import { Link } from 'react-router-dom';
 
 // Redux
@@ -55,6 +55,13 @@ export const Home = (): JSX.Element => {
   const [bookmarkSearchResult, setBookmarkSearchResult] = useState<
     null | Category[]
   >(null);
+
+  // Stable arrays for the grids, so they re-render only when the data changes.
+  const pinnedApps = useMemo(() => apps.filter((a) => a.isPinned), [apps]);
+  const pinnedCategories = useMemo(
+    () => categories.filter((c) => c.isPinned && c.bookmarks.length),
+    [categories]
+  );
 
   // Load applications
   useEffect(() => {
@@ -156,11 +163,7 @@ export const Home = (): JSX.Element => {
             <Spinner />
           ) : (
             <AppGrid
-              apps={
-                !appSearchResult
-                  ? apps.filter(({ isPinned }) => isPinned)
-                  : appSearchResult
-              }
+              apps={!appSearchResult ? pinnedApps : appSearchResult}
               totalApps={apps.length}
               searching={!!localSearch}
               sortable={
@@ -185,11 +188,7 @@ export const Home = (): JSX.Element => {
           ) : (
             <BookmarkGrid
               categories={
-                !bookmarkSearchResult
-                  ? categories.filter(
-                      ({ isPinned, bookmarks }) => isPinned && bookmarks.length
-                    )
-                  : bookmarkSearchResult
+                !bookmarkSearchResult ? pinnedCategories : bookmarkSearchResult
               }
               totalCategories={categories.length}
               searching={!!localSearch}

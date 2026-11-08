@@ -17,3 +17,4 @@ export * from './arrayPartition';
 export * from './reorderPinned';
 export * from './iconSource';
 export * from './urlSafety';
+export * from './reuseData';

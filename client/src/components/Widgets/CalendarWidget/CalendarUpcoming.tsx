@@ -3,6 +3,7 @@ import { useSelector } from 'react-redux';
 import { State } from '../../../store/reducers';
 
 import { SectionHeadline } from '../../UI';
+import { useNow } from '../../../hooks/useTicker';
 import { CalendarState } from './useCalendar';
 import { dayLabel, eventsForDay, startOfDay, timeLabel } from './calendarTime';
 
@@ -13,7 +14,9 @@ import classes from './CalendarWidget.module.css';
 export const CalendarUpcoming = ({ calendar }: { calendar: CalendarState }): JSX.Element | null => {
   const { calendarDays } = useSelector((state: State) => state.config.config);
   const isAuthenticated = useSelector((state: State) => state.auth.isAuthenticated);
-  const { data, events, now } = calendar;
+  const { data, events } = calendar;
+  // Moves "Today" and the day columns past midnight without re-rendering Home.
+  const now = useNow(30 * 1000);
   // Nothing configured for this viewer (or hidden from guests).
   if (!data || data.calendars.length === 0) return null;
 

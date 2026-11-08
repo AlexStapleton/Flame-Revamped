@@ -72,5 +72,5 @@ export const calendarSettingsTemplate: CalendarForm = {
   calendarShowNext: true,
   calendarShowUpcoming: true,
   calendarDays: 4,
-  calendarHideFromGuests: false,
+  calendarHideFromGuests: true,
 };

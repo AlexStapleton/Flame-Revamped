@@ -1,5 +1,5 @@
 import { Bookmark, Category } from '../../interfaces';
-import { sortData } from '../../utility';
+import { reuseData, sortData } from '../../utility';
 import { ActionType } from '../action-types';
 import { Action } from '../actions';
 
@@ -25,9 +25,9 @@ export const bookmarksReducer = (
 ): BookmarksState => {
   switch (action.type) {
     case ActionType.getCategories: {
+      // Only the first load shows the spinner; refreshes keep the list.
       return {
         ...state,
-        loading: true,
         errors: undefined,
       };
     }
@@ -36,7 +36,7 @@ export const bookmarksReducer = (
       return {
         ...state,
         loading: false,
-        categories: action.payload,
+        categories: reuseData(state.categories, action.payload),
       };
     }
 

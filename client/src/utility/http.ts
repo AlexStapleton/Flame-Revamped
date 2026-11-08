@@ -11,7 +11,13 @@ export interface HttpResponse<T> {
 
 export interface HttpConfig {
   headers?: Record<string, string>;
+  // Abort after this many ms; 0 disables the timeout.
+  timeoutMs?: number;
 }
+
+// A request that gets no answer would otherwise hang (and block poll loops
+// that wait for it) until the browser gives up, which can take minutes.
+export const DEFAULT_TIMEOUT_MS = 15 * 1000;
 
 export class HttpError<T = any> extends Error {
   response: HttpResponse<T>;
@@ -50,7 +56,24 @@ const request = async <T>(
     payload = JSON.stringify(body);
   }
 
-  const res = await fetch(url, { method, headers, body: payload });
+  // Uploads can legitimately take long, so they only time out when asked to.
+  const timeoutMs =
+    config.timeoutMs ?? (body instanceof FormData ? 0 : DEFAULT_TIMEOUT_MS);
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method,
+      headers,
+      body: payload,
+      signal: timeoutMs > 0 ? AbortSignal.timeout(timeoutMs) : undefined,
+    });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'TimeoutError') {
+      throw new Error(`Request timed out after ${Math.round(timeoutMs / 1000)} s`);
+    }
+    throw err;
+  }
   const response = { data: (await parseBody(res)) as T, status: res.status };
   if (!res.ok) throw new HttpError(response);
   return response;

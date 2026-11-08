@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, memo } from 'react';
 import { Link } from 'react-router-dom';
 
 import classes from './BookmarkGrid.module.css';
@@ -33,7 +33,7 @@ interface Props {
   sortable?: boolean;
 }
 
-export const BookmarkGrid = (props: Props): JSX.Element => {
+const BookmarkGridComponent = (props: Props): JSX.Element => {
   const {
     categories,
     totalCategories,
@@ -84,3 +84,5 @@ export const BookmarkGrid = (props: Props): JSX.Element => {
     </Suspense>
   );
 };
+
+export const BookmarkGrid = memo(BookmarkGridComponent);

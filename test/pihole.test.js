@@ -16,7 +16,6 @@ const {
   buildHandler,
   buildBlockingHandler,
   disableTimer,
-  GENERIC_ERROR,
 } = require('../controllers/pihole/getPihole');
 const { maskConfigForViewer } = require('../controllers/config/getConfig');
 const { SECRET_KEYS } = require('../utils/backup/secrets');
@@ -438,31 +437,37 @@ const runHandler = async (handler, isAuthenticated) => {
   return res;
 };
 
-test('handler hides error detail from guests', async () => {
+test('handler gives guests nothing and never contacts a Pi-hole for them', async () => {
+  let calls = 0;
   const manager = {
-    getAll: async () => [
-      { id: 'a', name: 'Main', ok: true, queries: 1 },
-      { id: 'b', name: 'Backup', ok: false, error: "Can't reach Pi-hole: connect ECONNREFUSED 10.0.0.2:80" },
-    ],
+    getAll: async () => {
+      calls++;
+      return [
+        { id: 'a', name: 'Main', ok: true, queries: 1 },
+        { id: 'b', name: 'Backup', ok: false, error: "Can't reach Pi-hole: connect ECONNREFUSED 10.0.0.2:80" },
+      ];
+    },
   };
   const handler = buildHandler({ fresh: false, manager });
   const guest = await runHandler(handler, false);
   assert.strictEqual(guest.statusCode, 200);
-  assert.strictEqual(guest.body.data[0].queries, 1);
-  assert.strictEqual(guest.body.data[1].error, GENERIC_ERROR);
+  assert.deepStrictEqual(guest.body.data, []);
+  assert.strictEqual(calls, 0);
   const admin = await runHandler(handler, true);
+  assert.strictEqual(admin.body.data[0].queries, 1);
   assert.match(admin.body.data[1].error, /10\.0\.0\.2/);
 });
 
-test('Pi-hole addresses and secrets are masked for guests; secrets are a backup secret', () => {
+test('Pi-holes and their secrets are hidden from guests; secrets are a backup secret', () => {
   const cfg = {
     piholes: [{ id: 'a', name: 'Main', url: 'http://10.0.0.2', version: 6 }],
     PIHOLE_SECRETS: { a: 'pw' },
   };
   const guest = maskConfigForViewer(cfg, false);
-  assert.deepStrictEqual(guest.piholes, [{ id: 'a', name: 'Main' }]);
+  assert.deepStrictEqual(guest.piholes, []);
   assert.deepStrictEqual(guest.PIHOLE_SECRETS, {});
   assert.deepStrictEqual(maskConfigForViewer({}, false).piholes, []);
+  assert.strictEqual(maskConfigForViewer(cfg, true).piholes[0].url, 'http://10.0.0.2');
   assert.strictEqual(maskConfigForViewer(cfg, true).PIHOLE_SECRETS.a, 'pw');
   assert.ok(SECRET_KEYS.includes('PIHOLE_SECRETS'));
 });
@@ -502,6 +507,69 @@ test('requestJson gives data null for a non-JSON reply', async () => {
     const res = await requestJson(`http://127.0.0.1:${port}/`);
     assert.strictEqual(res.data, null);
   } finally {
+    server.close();
+  }
+});
+
+// The v6 summary and blocking calls must be in flight together, on one session.
+// The fake holds the summary reply until the blocking request arrives. A 1 s
+// fail-safe answers anyway, so a sequential client fails the assertion rather
+// than hanging the test.
+test('v6 summary and blocking requests are sent concurrently on one session', async () => {
+  let logins = 0;
+  let pendingSummary = null;
+  let concurrent = false;
+  const send = (res, status, body) => {
+    res.writeHead(status, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(body));
+  };
+  const server = http.createServer((req, res) => {
+    req.resume();
+    req.on('end', () => {
+      const { pathname } = new URL(req.url, 'http://127.0.0.1');
+      if (pathname === '/api/auth') {
+        logins++;
+        return send(res, 200, { session: { valid: true, sid: 'sid-1' } });
+      }
+      if (req.headers['x-ftl-sid'] !== 'sid-1') {
+        return send(res, 401, { error: { key: 'unauthorized' } });
+      }
+      if (pathname === '/api/stats/summary') {
+        const timer = setTimeout(() => {
+          pendingSummary = null;
+          send(res, 200, SUMMARY);
+        }, 1000);
+        pendingSummary = { res, timer };
+        return;
+      }
+      if (pathname === '/api/dns/blocking') {
+        if (pendingSummary) {
+          concurrent = true;
+          clearTimeout(pendingSummary.timer);
+          send(pendingSummary.res, 200, SUMMARY);
+          pendingSummary = null;
+        }
+        return send(res, 200, { blocking: 'enabled', timer: null });
+      }
+      send(res, 404, null);
+    });
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  const { port } = server.address();
+  try {
+    const client = createPiholeClient();
+    const stats = await client.getStats({
+      baseUrl: `http://127.0.0.1:${port}`,
+      version: 6,
+      password: 'pw',
+      insecure: false,
+    });
+    assert.strictEqual(stats.queries, 12345);
+    assert.strictEqual(stats.blocking, 'enabled');
+    assert.strictEqual(concurrent, true, 'blocking was requested only after the summary finished');
+    assert.strictEqual(logins, 1, 'parallel requests must share one login');
+  } finally {
+    server.closeAllConnections?.();
     server.close();
   }
 });

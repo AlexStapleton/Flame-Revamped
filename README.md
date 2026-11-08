@@ -175,7 +175,7 @@ More detail is in the original project's [search bar wiki page](https://github.c
 
 1. Get an API key from [WeatherAPI.com](https://www.weatherapi.com/pricing.aspx). The free plan is plenty, since Flame makes fewer than 3,000 calls a month.
 2. Get the latitude and longitude for your location, from [latlong.net](https://www.latlong.net/convert-address-to-lat-long.html) or with "Click to get current location" in the settings.
-3. Enter both under Settings > Weather and save. The widget appears on the homescreen, and a new key works without a restart.
+3. Enter both under Settings > Weather and save. The widget appears on the homescreen for logged-in users (visitors who aren't logged in never see weather or your location), and a new key works without a restart.
 
 The widget shows the current temperature and feels-like, today's high and low with one extra value you choose (cloud cover, humidity, chance of rain, rain, wind, UV, air quality, pressure or visibility), and a 3-day forecast. Hovering it lists the rest, including sunrise and sunset. When a severe weather alert is in effect, a line under the widget names it, and clicking it shows the details. The forecast and alerts can be turned off, and wind, rain, pressure and visibility can be shown in metric or imperial units.
 
@@ -189,11 +189,11 @@ Works with Pi-hole v5 and v6, and with more than one Pi-hole (up to 10).
    - **v6:** in Pi-hole, open Settings > Web interface / API (Expert mode), use "Configure app password" and copy the app password. Skip this if your Pi-hole has no password.
    - **v5:** in Pi-hole, open Settings > API / Web interface and click "Show API token".
 2. In Flame, open Settings > Pi-hole and click "Add Pi-hole". Enter a name, the address as Flame's server reaches it (for example `http://192.168.1.2`, or `http://pihole` inside a Docker network), the version, and the password or token. Repeat for each Pi-hole.
-3. Save. Flame tests each Pi-hole and shows the result. The widget appears in the header on screens 900px and wider, with one row per Pi-hole.
+3. Save. Flame tests each Pi-hole and shows the result. The widget appears in the header on screens 900px and wider, with one row per Pi-hole. Only logged-in users see it.
 
 When you're logged in, click a Pi-hole's shield to pause its blocking, and click the dimmed shield to turn blocking back on. How long a pause lasts is set under Settings > Pi-hole > Pause blocking: 30 seconds, 5 minutes (the default), 30 minutes, 1 hour, or until you click again. Visitors who aren't logged in can't toggle it.
 
-Flame's server talks to the Pi-holes, so passwords and tokens never reach the browser. They are left out of backups, and visitors who aren't logged in see only each Pi-hole's name, not its address. A Pi-hole that can't be reached shows as "unreachable", and a logged-in admin sees the reason when they hover over it. For an `https://` address with a self-signed certificate, set "Skip certificate check" to True, or use the `http://` address instead. v5 sends its token in the URL, so prefer a LAN or Docker-network address for it.
+Flame's server talks to the Pi-holes, so passwords and tokens never reach the browser. They are left out of backups, and visitors who aren't logged in see no Pi-hole widget or data at all. A Pi-hole that can't be reached shows as "unreachable", and a logged-in admin sees the reason when they hover over it. For an `https://` address with a self-signed certificate, set "Skip certificate check" to True, or use the `http://` address instead. v5 sends its token in the URL, so prefer a LAN or Docker-network address for it.
 
 ### Calendar widget
 
@@ -206,9 +206,9 @@ Shows events from one or more calendars (up to 10): your next event on one line 
 2. In Flame, open Settings > Calendar and click "Add calendar". Enter a name, pick a color for its dot, and paste the link. Repeat for each calendar.
 3. Save. Flame loads each calendar and shows how many events it found, or why a link didn't work.
 
-Under Settings > Calendar > Display you can turn the header line and the Upcoming section on or off, choose how many days the Upcoming section shows (1 to 7, default 4), and choose whether visitors who aren't logged in see events at all. They do by default, like the other widgets. Pick "See no events" if people you don't share your calendar with can open Flame.
+Under Settings > Calendar > Display you can turn the header line and the Upcoming section on or off, choose how many days the Upcoming section shows (1 to 7, default 4), and choose whether visitors who aren't logged in see events at all. By default they don't, like the weather and Pi-hole widgets, which are always hidden from visitors. Pick "See events" only if everyone who can open Flame may see your event titles.
 
-The iCal link works like a password: anyone who has it can read the whole calendar. So Flame's server downloads the calendars and the browser only gets the events it shows (title, time and which calendar). The links are never sent to visitors, are left out of backups, and are kept when a backup is restored. Each calendar is downloaded at most once every 5 minutes. Google only updates its iCal feed every few hours, so a new event can take a while to appear. Recurring events, moved or cancelled occurrences and time zones are handled. The next-event line also shows on phones; the Upcoming section stacks the days there.
+The iCal link works like a password: anyone who has it can read the whole calendar. So Flame's server downloads the calendars and the browser only gets the events it shows (title, time and which calendar). The links are never sent to visitors, are left out of backups, and are kept when a backup is restored. Each calendar is downloaded at most once every 15 minutes (and only re-read when it has changed). Google only updates its iCal feed every few hours, so a new event can take a while to appear. Recurring events, moved or cancelled occurrences and time zones are handled. The next-event line also shows on phones; the Upcoming section stacks the days there.
 
 ### App status checks
 

@@ -19,8 +19,9 @@ const logger = new Logger();
 const REQUEST_TIMEOUT_MS = 5000;
 const MAX_BODY_BYTES = 256 * 1024;
 // Results (good or bad) are reused for this long, so many open dashboards and a
-// down Pi-hole both cost at most one round trip per window.
-const CACHE_TTL_MS = 30 * 1000;
+// down Pi-hole both cost at most one round trip per window. Just under the
+// client's 60 s poll, so a result from one poll can serve a second dashboard.
+const CACHE_TTL_MS = 55 * 1000;
 
 // Turn what the user typed into the API base URL. Accepts "http://pi.hole",
 // "http://pi.hole/", "http://pi.hole/admin" or ".../api". Returns null for
@@ -142,6 +143,10 @@ const createPiholeClient = ({
   let sessionSettings = null;
   let sid = null; // null + hasSession = Pi-hole has no password
   let hasSession = false;
+  // Bumped whenever a session is started or dropped, so a request that failed
+  // with 401 can tell whether another request already replaced its session.
+  let sessionGen = 0;
+  let loginInFlight = null;
   let cache = null; // { at, key, value } or { at, key, error }
   let inFlight = null;
 
@@ -174,6 +179,20 @@ const createPiholeClient = ({
     }
     sid = session.sid || null;
     hasSession = true;
+    sessionGen++;
+  };
+
+  // Logs in unless a session exists. Requests that need a session at the same
+  // time share one login, so the parallel v6 calls never take two Pi-hole
+  // session slots.
+  const ensureLogin = (s) => {
+    if (hasSession) return Promise.resolve();
+    if (!loginInFlight) {
+      loginInFlight = login(s).finally(() => {
+        loginInFlight = null;
+      });
+    }
+    return loginInFlight;
   };
 
   const authedRequest = async (s, path, { method = 'GET', body } = {}) => {
@@ -189,12 +208,17 @@ const createPiholeClient = ({
   // Call a v6 endpoint, logging in first if needed and once more if Pi-hole
   // has expired the session.
   const getWithSession = async (s, path, opts) => {
-    if (!hasSession) await login(s);
+    await ensureLogin(s);
+    const gen = sessionGen;
     let res = await authedRequest(s, path, opts);
     if (res.status === 401) {
-      hasSession = false;
-      sid = null;
-      await login(s);
+      // Only the first 401 for this session drops it. A request that raced it
+      // finds the session already replaced and just retries with that one.
+      if (sessionGen === gen) {
+        hasSession = false;
+        sid = null;
+      }
+      await ensureLogin(s);
       res = await authedRequest(s, path, opts);
     }
     if (res.status !== 200 || !res.data) {
@@ -203,9 +227,13 @@ const createPiholeClient = ({
     return res.data;
   };
 
+  // The summary and blocking state are independent, so they go out together
+  // and share one session (see ensureLogin).
   const fetchV6 = async (s) => {
-    const summary = await getWithSession(s, '/api/stats/summary');
-    const blocking = await getWithSession(s, '/api/dns/blocking');
+    const [summary, blocking] = await Promise.all([
+      getWithSession(s, '/api/stats/summary'),
+      getWithSession(s, '/api/dns/blocking'),
+    ]);
     return mapStats(summary, blocking);
   };
 
@@ -238,6 +266,7 @@ const createPiholeClient = ({
       sessionSettings = s;
       sid = null;
       hasSession = false;
+      sessionGen++;
     }
   };
 

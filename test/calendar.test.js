@@ -10,6 +10,7 @@ const {
   fetchFeed,
   CalendarError,
   MAX_CALENDARS,
+  CACHE_TTL_MS,
 } = require('../utils/calendar');
 const { buildHandler, GENERIC_ERROR } = require('../controllers/calendar/getCalendar');
 const { maskConfigForViewer } = require('../controllers/config/getConfig');
@@ -92,6 +93,30 @@ test('recurring events: expanded, EXDATE skipped, overrides moved, cancelled dro
   assert.strictEqual(events[0].allDay, false);
 });
 
+test('exceptions attach only to their own series (weekly, one moved, one cancelled)', () => {
+  const series = (uid, title, extra) => [
+    vevent([`UID:${uid}`, 'DTSTART:20260105T100000Z', 'DTEND:20260105T110000Z', 'RRULE:FREQ=WEEKLY', `SUMMARY:${title}`]),
+    ...extra,
+  ];
+  const feed = ics(
+    ...series('a@t', 'A', [
+      vevent(['UID:a@t', 'RECURRENCE-ID:20261012T100000Z', 'DTSTART:20261013T150000Z', 'DTEND:20261013T160000Z', 'SUMMARY:A moved']),
+    ]),
+    ...series('b@t', 'B', [
+      vevent(['UID:b@t', 'RECURRENCE-ID:20261012T100000Z', 'DTSTART:20261012T100000Z', 'STATUS:CANCELLED', 'SUMMARY:B']),
+    ])
+  );
+  const events = parseEvents(feed, WINDOW);
+  assert.deepStrictEqual(
+    events.map((e) => [e.start, e.title]),
+    [
+      ['2026-10-13T15:00:00.000Z', 'A moved'],
+      ['2026-10-19T10:00:00.000Z', 'A'],
+      ['2026-10-19T10:00:00.000Z', 'B'],
+    ]
+  );
+});
+
 test('all-day, UTC, unknown TZID, floating and Windows-named zones', () => {
   const feed = ics(
     vtimezone('Pacific Standard Time'),
@@ -154,6 +179,35 @@ test('a series in a zone without a VTIMEZONE keeps its zone across DST', () => {
   );
 });
 
+test('a long-running series in an unknown-VTIMEZONE zone is fast and exact; old overrides moved into the window show', () => {
+  const feed = ics(
+    vevent([
+      'UID:d@t',
+      'DTSTART;TZID=Europe/Berlin:20100101T090000',
+      'DTEND;TZID=Europe/Berlin:20100101T100000',
+      'RRULE:FREQ=DAILY',
+      'SUMMARY:Daily',
+    ]),
+    // An occurrence from years ago that was moved into the window.
+    vevent([
+      'UID:d@t',
+      'RECURRENCE-ID;TZID=Europe/Berlin:20130301T090000',
+      'DTSTART;TZID=Europe/Berlin:20261012T200000',
+      'DTEND;TZID=Europe/Berlin:20261012T210000',
+      'SUMMARY:Moved in',
+    ])
+  );
+  const started = Date.now();
+  const events = parseEvents(feed, WINDOW);
+  assert.ok(Date.now() - started < 3000);
+  // Berlin is on CEST (UTC+2) until 25 Oct 2026. Window: Oct 10 12:00Z - Oct 20 12:00Z.
+  const starts = events.map((e) => e.start);
+  assert.strictEqual(starts[0], '2026-10-11T07:00:00.000Z');
+  assert.ok(starts.includes('2026-10-12T18:00:00.000Z'));
+  assert.strictEqual(events.find((e) => e.title === 'Moved in').start, '2026-10-12T18:00:00.000Z');
+  assert.strictEqual(events.length, 11);
+});
+
 test('an event already in progress and a multi-day event overlapping the window are kept', () => {
   const feed = ics(
     vevent(['UID:1', 'DTSTART:20261009T000000Z', 'DTEND:20261012T000000Z', 'SUMMARY:Trip']),
@@ -175,13 +229,164 @@ test('titles are cleaned and capped; the event count is capped', () => {
   assert.strictEqual(events[1].title.length, 200);
 });
 
-test('a runaway rule from long ago stops instead of hanging', () => {
+test('a runaway rule from long ago is fast-forwarded to the window', () => {
   const feed = ics(
     vevent(['UID:1', 'DTSTART:19900101T000000Z', 'RRULE:FREQ=MINUTELY', 'SUMMARY:Spam'])
   );
   const started = Date.now();
-  assert.deepStrictEqual(parseEvents(feed, WINDOW), []);
+  const events = parseEvents(feed, WINDOW);
   assert.ok(Date.now() - started < 5000);
+  assert.strictEqual(events.length, 300);
+  assert.strictEqual(events[0].start, '2026-10-10T12:00:00.000Z');
+  assert.strictEqual(events[299].start, '2026-10-10T16:59:00.000Z');
+});
+
+const BIG_WINDOW = { ...WINDOW, limit: 100000 };
+const rangeStarts = (events) => events.map((e) => e.start);
+
+test('HOURLY since 2010 (UTC) reaches the window; so does MINUTELY every 15 min since 2015', () => {
+  const hourly = parseEvents(
+    ics(vevent(['UID:h', 'DTSTART:20100101T090000Z', 'RRULE:FREQ=HOURLY', 'SUMMARY:Hourly'])),
+    BIG_WINDOW
+  );
+  assert.strictEqual(hourly.length, 240);
+  assert.strictEqual(hourly[0].start, '2026-10-10T12:00:00.000Z');
+  assert.strictEqual(hourly[239].start, '2026-10-20T11:00:00.000Z');
+  const quarter = parseEvents(
+    ics(vevent(['UID:m', 'DTSTART:20150301T100700Z', 'RRULE:FREQ=MINUTELY;INTERVAL=15', 'SUMMARY:Q'])),
+    BIG_WINDOW
+  );
+  assert.strictEqual(quarter.length, 960);
+  assert.strictEqual(quarter[0].start, '2026-10-10T12:07:00.000Z');
+  assert.strictEqual(quarter[959].start, '2026-10-20T11:52:00.000Z');
+});
+
+test('HOURLY with a BYHOUR limiter keeps its limits after fast-forward', () => {
+  const events = parseEvents(
+    ics(vevent(['UID:b', 'DTSTART:20100101T090000Z', 'RRULE:FREQ=HOURLY;BYHOUR=9,10', 'SUMMARY:B'])),
+    BIG_WINDOW
+  );
+  assert.deepStrictEqual(
+    rangeStarts(events).slice(0, 3),
+    ['2026-10-11T09:00:00.000Z', '2026-10-11T10:00:00.000Z', '2026-10-12T09:00:00.000Z']
+  );
+  assert.strictEqual(events.length, 20);
+});
+
+test('fast-forward matches full iteration for zoned series across DST changes', () => {
+  const berlin = `BEGIN:VTIMEZONE
+TZID:Europe/Berlin
+BEGIN:STANDARD
+DTSTART:19701025T030000
+RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU
+TZOFFSETFROM:+0200
+TZOFFSETTO:+0100
+END:STANDARD
+BEGIN:DAYLIGHT
+DTSTART:19700329T020000
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU
+TZOFFSETFROM:+0100
+TZOFFSETTO:+0200
+END:DAYLIGHT
+END:VTIMEZONE`;
+  const windows = [
+    { from: Date.UTC(2026, 9, 24), to: Date.UTC(2026, 9, 27) }, // Europe falls back 25 Oct
+    { from: Date.UTC(2026, 2, 28), to: Date.UTC(2026, 3, 1) }, // and springs forward 29 Mar
+  ];
+  const cases = [
+    ['Europe/Berlin', berlin, 'FREQ=HOURLY'],
+    ['Europe/Berlin', berlin, 'FREQ=HOURLY;INTERVAL=5;BYHOUR=1,2,3,8'],
+    ['Europe/Berlin', '', 'FREQ=HOURLY;INTERVAL=3'], // zone named but not defined
+    ['Europe/Berlin', berlin, 'FREQ=MINUTELY;INTERVAL=45;BYSECOND=0,30'],
+  ];
+  for (const [tz, vtz, rule] of cases) {
+    const feed = ics(
+      vtz,
+      vevent([
+        'UID:z',
+        `DTSTART;TZID=${tz}:20230115T093000`,
+        `DTEND;TZID=${tz}:20230115T100000`,
+        `RRULE:${rule}`,
+        'SUMMARY:Z',
+      ])
+    );
+    for (const w of windows) {
+      const opts = { ...w, limit: 100000, maxIterations: 2e6 };
+      const full = parseEvents(feed, { ...opts, fastForward: false });
+      assert.ok(full.length > 0, rule);
+      assert.deepStrictEqual(parseEvents(feed, opts), full, `${rule} ${w.from}`);
+    }
+  }
+});
+
+test('EXDATE, RDATE and RECURRENCE-ID overrides still apply after fast-forward', () => {
+  const feed = ics(
+    vevent([
+      'UID:x',
+      'DTSTART:20100101T090000Z',
+      'RRULE:FREQ=HOURLY',
+      'EXDATE:20261012T100000Z',
+      'RDATE:20261013T123456Z',
+      'SUMMARY:X',
+    ]),
+    vevent([
+      'UID:x',
+      'RECURRENCE-ID:20261014T100000Z',
+      'DTSTART:20261014T223000Z',
+      'SUMMARY:X moved',
+    ]),
+    vevent(['UID:x', 'RECURRENCE-ID:20261015T100000Z', 'DTSTART:20261015T100000Z', 'STATUS:CANCELLED', 'SUMMARY:X'])
+  );
+  const events = parseEvents(feed, BIG_WINDOW);
+  const starts = rangeStarts(events);
+  assert.ok(!starts.includes('2026-10-12T10:00:00.000Z'), 'EXDATE');
+  assert.ok(starts.includes('2026-10-12T09:00:00.000Z'));
+  assert.ok(starts.includes('2026-10-13T12:34:56.000Z'), 'RDATE');
+  assert.ok(!starts.includes('2026-10-14T10:00:00.000Z'), 'moved away');
+  assert.strictEqual(events.find((e) => e.start === '2026-10-14T22:30:00.000Z').title, 'X moved');
+  assert.ok(!starts.includes('2026-10-15T10:00:00.000Z'), 'cancelled');
+  // 240 slots - EXDATE - moved - cancelled + RDATE + moved-in
+  assert.strictEqual(events.length, 240 - 3 + 2);
+});
+
+test('an old override moved into the window is still found when fast-forwarding', () => {
+  const feed = ics(
+    vevent(['UID:o', 'DTSTART:20100101T090000Z', 'RRULE:FREQ=HOURLY', 'SUMMARY:O']),
+    vevent([
+      'UID:o',
+      'RECURRENCE-ID:20200301T100000Z',
+      'DTSTART:20261012T000000Z',
+      'SUMMARY:Old moved in',
+    ])
+  );
+  const events = parseEvents(feed, { ...WINDOW, limit: 100000, maxIterations: 2e6 });
+  assert.strictEqual(events.filter((e) => e.title === 'Old moved in').length, 1);
+  assert.deepStrictEqual(
+    events,
+    parseEvents(feed, { ...WINDOW, limit: 100000, maxIterations: 2e6, fastForward: false })
+  );
+});
+
+test('a series that still exhausts the iteration cap is reported, not silently cut', async () => {
+  // COUNT depends on the original start, so it cannot be fast-forwarded.
+  const feed = ics(
+    vevent(['UID:cnt@t', 'DTSTART:20200101T000000Z', 'RRULE:FREQ=HOURLY;COUNT=100000', 'SUMMARY:C'])
+  );
+  const seen = [];
+  assert.deepStrictEqual(parseEvents(feed, { ...WINDOW, onTruncated: (u) => seen.push(u) }), []);
+  assert.deepStrictEqual(seen, [['cnt@t']]);
+
+  // One warning per refresh naming the calendar and the UID.
+  const warned = [];
+  const client = createCalendarClient({
+    now: () => NOW,
+    fetchText: async () => feed,
+    onWarn: (m) => warned.push(m),
+  });
+  await client.getEvents('u', { label: 'cal1 (Work)' });
+  assert.strictEqual(warned.length, 1);
+  assert.match(warned[0], /cal1 \(Work\)/);
+  assert.match(warned[0], /cnt@t/);
 });
 
 test('something that is not iCal gives a clear CalendarError', () => {
@@ -254,7 +459,7 @@ test('client caches for the TTL and shares one in-flight download', async () => 
   assert.strictEqual(downloads, 1);
   await client.getEvents('u', { fresh: true });
   assert.strictEqual(downloads, 2);
-  t += 10 * 60e3;
+  t += 20 * 60e3;
   await client.getEvents('u');
   assert.strictEqual(downloads, 3);
   await client.getEvents('other');
@@ -444,4 +649,191 @@ test('fetchFeed returns the body, follows redirects, and keeps the link out of e
     assert.ok(!e.message.includes('SECRET'));
     return true;
   });
+});
+
+// Conditional requests, body hashing and the compact parse cache.
+const ICAL = require('ical.js');
+const countParses = async (fn) => {
+  const original = ICAL.parse;
+  let parses = 0;
+  ICAL.parse = function (...args) {
+    parses++;
+    return original.apply(this, args);
+  };
+  try {
+    await fn();
+  } finally {
+    ICAL.parse = original;
+  }
+  return parses;
+};
+
+const feedWithTitle = (title) =>
+  ics(vevent(['UID:1', 'DTSTART:20261011T150000Z', `SUMMARY:${title}`]));
+
+test('a 304 reuses the parsed feed: If-None-Match is sent and nothing is re-parsed', async () => {
+  const seen = [];
+  await withServer(
+    (req, res) => {
+      seen.push(req.headers['if-none-match'] || null);
+      if (req.headers['if-none-match'] === '"v1"') {
+        res.writeHead(304, { ETag: '"v1"' });
+        return res.end();
+      }
+      res.writeHead(200, { ETag: '"v1"', 'Content-Type': 'text/calendar' });
+      res.end(SIMPLE);
+    },
+    async (base) => {
+      let t = NOW;
+      const client = createCalendarClient({ now: () => t });
+      const url = `${base}/cal.ics`;
+      let first;
+      const parses = await countParses(async () => {
+        first = await client.getEvents(url);
+        t += 20 * 60e3; // TTL expired: asks the host again
+        const second = await client.getEvents(url);
+        assert.deepStrictEqual(second, first);
+        t += 20 * 60e3;
+        await client.getEvents(url, { fresh: true }); // fresh is conditional too
+      });
+      assert.strictEqual(parses, 1);
+      assert.deepStrictEqual(seen, [null, '"v1"', '"v1"']);
+      assert.strictEqual(first[0].title, 'Dentist');
+    }
+  );
+});
+
+test('a 304 keeps the visible window moving with time', async () => {
+  const feed = ics(
+    vevent(['UID:a', 'DTSTART:20261011T150000Z', 'SUMMARY:Soon']),
+    vevent(['UID:b', 'DTSTART:20261025T150000Z', 'SUMMARY:Later']),
+    vevent(['UID:w', 'DTSTART:20261005T090000Z', 'RRULE:FREQ=WEEKLY', 'SUMMARY:Weekly'])
+  );
+  let hits = 0;
+  await withServer(
+    (req, res) => {
+      hits++;
+      if (req.headers['if-none-match']) {
+        res.writeHead(304);
+        return res.end();
+      }
+      res.writeHead(200, { ETag: '"e"' });
+      res.end(feed);
+    },
+    async (base) => {
+      let t = NOW;
+      const client = createCalendarClient({ now: () => t });
+      const titles = async () => (await client.getEvents(`${base}/x`)).map((e) => e.title);
+      // Window Oct 10 12:00Z - Oct 20 12:00Z.
+      assert.deepStrictEqual(await titles(), ['Soon', 'Weekly', 'Weekly']);
+      t += 7 * 24 * 3600e3; // a week later, same feed (window Oct 17 - Oct 27)
+      assert.deepStrictEqual(await titles(), ['Weekly', 'Later', 'Weekly']);
+      // Past the parsed range: the body is fetched again, unconditionally.
+      t += 30 * 24 * 3600e3;
+      assert.ok((await titles()).length > 0);
+      assert.ok(hits >= 4);
+    }
+  );
+});
+
+test('a server without validators: an identical body is not re-parsed, a changed one is', async () => {
+  let body = feedWithTitle('One');
+  let hits = 0;
+  await withServer(
+    (req, res) => {
+      hits++;
+      assert.strictEqual(req.headers['if-none-match'], undefined);
+      assert.strictEqual(req.headers['if-modified-since'], undefined);
+      res.writeHead(200);
+      res.end(body);
+    },
+    async (base) => {
+      let t = NOW;
+      const client = createCalendarClient({ now: () => t });
+      const url = `${base}/p.ics`;
+      const parses = await countParses(async () => {
+        assert.strictEqual((await client.getEvents(url))[0].title, 'One');
+        t += 20 * 60e3;
+        assert.strictEqual((await client.getEvents(url))[0].title, 'One');
+        assert.strictEqual(hits, 2);
+        body = feedWithTitle('Two');
+        t += 20 * 60e3;
+        assert.strictEqual((await client.getEvents(url))[0].title, 'Two');
+      });
+      assert.strictEqual(parses, 2);
+      assert.strictEqual(hits, 3);
+    }
+  );
+});
+
+test('Last-Modified is used when there is no ETag', async () => {
+  const seen = [];
+  await withServer(
+    (req, res) => {
+      seen.push(req.headers['if-modified-since'] || null);
+      if (req.headers['if-modified-since']) {
+        res.writeHead(304);
+        return res.end();
+      }
+      res.writeHead(200, { 'Last-Modified': 'Wed, 07 Oct 2026 10:00:00 GMT' });
+      res.end(SIMPLE);
+    },
+    async (base) => {
+      let t = NOW;
+      const client = createCalendarClient({ now: () => t });
+      await client.getEvents(`${base}/l`);
+      t += 20 * 60e3;
+      assert.strictEqual((await client.getEvents(`${base}/l`))[0].title, 'Dentist');
+      assert.deepStrictEqual(seen, [null, 'Wed, 07 Oct 2026 10:00:00 GMT']);
+    }
+  );
+});
+
+test('the TTL is 15 minutes and fresh=true bypasses it', async () => {
+  assert.strictEqual(CACHE_TTL_MS, 15 * 60 * 1000);
+  let t = NOW;
+  let downloads = 0;
+  const client = createCalendarClient({
+    now: () => t,
+    fetchText: async () => {
+      downloads++;
+      return SIMPLE;
+    },
+  });
+  await client.getEvents('u');
+  t += 14 * 60e3;
+  await client.getEvents('u');
+  assert.strictEqual(downloads, 1);
+  await client.getEvents('u', { fresh: true });
+  assert.strictEqual(downloads, 2);
+  t += 16 * 60e3;
+  await client.getEvents('u');
+  assert.strictEqual(downloads, 3);
+});
+
+test('several calendars are parsed one after another, with the event loop getting a turn between', async () => {
+  const original = ICAL.parse;
+  const log = [];
+  ICAL.parse = function (...args) {
+    log.push('parse');
+    return original.apply(this, args);
+  };
+  let running = true;
+  const tick = () => {
+    if (!running) return;
+    log.push('tick');
+    setImmediate(tick);
+  };
+  setImmediate(tick);
+  try {
+    const clients = [1, 2, 3].map(() =>
+      createCalendarClient({ now: () => NOW, fetchText: async () => SIMPLE })
+    );
+    await Promise.all(clients.map((c) => c.getEvents('u')));
+  } finally {
+    running = false;
+    ICAL.parse = original;
+  }
+  assert.strictEqual(log.filter((x) => x === 'parse').length, 3);
+  assert.ok(!log.join(',').includes('parse,parse'), log.join(','));
 });

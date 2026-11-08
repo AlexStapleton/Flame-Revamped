@@ -1,16 +1,23 @@
+import { memo } from 'react';
 import { Icon as MDIcon } from '@mdi/react';
 import { mdiCalendarBlankOutline } from '@mdi/js';
 
+import { useNow } from '../../../hooks/useTicker';
 import { CalendarState } from './useCalendar';
 import { nextEvent, nextLabel } from './calendarTime';
 
 import classes from './CalendarWidget.module.css';
 
+// How often "in 2h 15m" is recomputed.
+const NOW_TICK_MS = 30 * 1000;
+
 // One line under the greeting: the next event, e.g. "10:30 Dentist · in 2h
 // 15m". Unlike the weather and Pi-hole widgets it stays on narrow screens,
 // since it is short.
-export const CalendarNext = ({ calendar }: { calendar: CalendarState }): JSX.Element | null => {
-  const { data, events, now } = calendar;
+const CalendarNextComponent = ({ calendar }: { calendar: CalendarState }): JSX.Element | null => {
+  const { data, events } = calendar;
+  // "in 2h 15m" is recomputed here, not in Home.
+  const now = useNow(NOW_TICK_MS);
   if (!data) return null;
   const event = nextEvent(events, now);
   if (!event) return null;
@@ -32,3 +39,5 @@ export const CalendarNext = ({ calendar }: { calendar: CalendarState }): JSX.Ele
     </div>
   );
 };
+
+export const CalendarNext = memo(CalendarNextComponent);

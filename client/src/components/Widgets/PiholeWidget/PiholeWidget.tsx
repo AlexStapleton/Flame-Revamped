@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, memo, useEffect, useState } from 'react';
 import { Icon as MDIcon } from '@mdi/react';
 import { mdiShieldCheck, mdiShieldOff } from '@mdi/js';
 
@@ -49,7 +49,7 @@ const pauseLabel = (seconds: number): string => {
 };
 
 // One row per configured Pi-hole, under a shared header of column labels.
-export const PiholeWidget = (): JSX.Element | null => {
+const PiholeWidgetComponent = (): JSX.Element | null => {
   const { loading: configLoading, config } = useSelector(
     (state: State) => state.config
   );
@@ -102,17 +102,27 @@ export const PiholeWidget = (): JSX.Element | null => {
 
     let cancelled = false;
     let timer: number | null = null;
+    // Skip a tick while a request is still running, and ignore an answer that
+    // a newer request has overtaken.
+    let inFlight = false;
+    let seq = 0;
 
     const load = () => {
+      if (inFlight) return;
+      inFlight = true;
+      const mine = ++seq;
       http
         .get<ApiResponse<PiholeResult[]>>('/api/pihole', {
           headers: applyAuth(),
         })
         .then((res) => {
-          if (!cancelled) setResults(res.data.data || []);
+          if (!cancelled && mine === seq) setResults(res.data.data || []);
         })
         .catch(() => {
           // Flame itself is unreachable: keep the last results on screen.
+        })
+        .finally(() => {
+          inFlight = false;
         });
     };
 
@@ -221,3 +231,5 @@ export const PiholeWidget = (): JSX.Element | null => {
     </div>
   );
 };
+
+export const PiholeWidget = memo(PiholeWidgetComponent);

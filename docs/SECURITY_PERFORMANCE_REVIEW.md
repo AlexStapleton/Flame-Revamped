@@ -455,6 +455,102 @@ The GET fallback also downloads the **whole response body** (no `maxContentLengt
 
 ---
 
+## Optimization review, November 2026 (v2.0.0)
+
+**Scope.** This review covers code added after the v1.8.0 performance pass:
+
+- the Pi-hole, calendar and weather-forecast widgets;
+- the dependency modernization;
+- the guest-visibility change (weather and Pi-hole for logged-in users only).
+
+**Method.**
+
+- **Server side:** benchmarked with synthetic `.ics` feeds (2–10 MB, recurring series with and without `VTIMEZONE`), a 10 ms event-loop probe and CPU profiles.
+- **Client side:** request counts and React render counts measured in headless Chromium against a real server.
+- **Release-level numbers:** bundle sizes, page weight, server memory and dependency size.
+
+Unless marked otherwise, times are from a fast x86 host; expect roughly 5–10× longer on a Raspberry Pi.
+
+### Baseline (before fixes)
+
+| Metric | Value |
+|---|---|
+| Homescreen JS (brotli), guest / admin | 105 KB / 125 KB (v1.8.0: 113 / 132 KB) |
+| Whole page, guest / admin | 191 KB / 217 KB |
+| Server ready / idle RSS / RSS after two page loads | 2.5 s / 106 MB / 128 MB (no leak found; mostly Node, Sequelize and SQLite) |
+| Production `node_modules` | 132 MB, of which `@kubernetes/client-node` is 64 MB (loaded on demand, so no memory cost) |
+
+### Findings and status
+
+| ID | Severity | Finding | Status |
+|---|---|---|---|
+| SV1 | High | **Calendar parsing was quadratic.** `new ICAL.Event(vevent)` made ical.js rescan every sibling VEVENT, and the parse is synchronous, so the whole server stalled. A 10 MB feed blocked it for about 55 s, every 5 minutes. | **Fixed:** `{ exceptions: [] }`, because exceptions are already linked by Flame |
+| SV2 | High/Med | **A date formatter was built for every repeat of a recurring event.** `Intl.DateTimeFormat` was constructed per occurrence when a feed names a TZID without a VTIMEZONE (common with Outlook). One daily series since 2010 took 4.5 s. | **Fixed:** one formatter per zone (bounded), and occurrences far before the window are skipped |
+| SV3 | Med (correctness) | **Old hourly and minutely series showed no events.** They hit the 50,000-iteration cap before reaching today (an HOURLY series since 2010, for example). | **Fixed:** fast-forward (details below), plus a warning when a series is still truncated |
+| SV4 | Med | **Every feed was re-downloaded and re-parsed every 5 minutes,** even when unchanged. | **Fixed:** `If-None-Match` / `If-Modified-Since`, a sha1 check of the body, a 15-minute cache (5 minutes after an error), and sequential parsing |
+| SV5 | Low | **Weather was fetched every 15 minutes, 24/7,** even with no dashboard open. | **Fixed:** idle-gated like sync and status checks; opening a dashboard refreshes stale weather; an unchanged `externalLastUpdate` skips the DB write and the broadcast |
+| SV6 | Low | **The 4-hourly weather cleanup job was dead.** | **Fixed:** it now prunes once at startup and keeps the highest-id row |
+| SV7 | Low | **The Pi-hole v6 calls were sequential,** and the 30 s cache was shorter than the 60 s poll. | **Fixed:** the calls run with `Promise.all`; the TTL is 55 s (this helps multiple viewers) |
+| SV8 | Low | **`@kubernetes/client-node` ships in every image** (64 MB). | **Open:** a packaging decision |
+| CL1 | Med (visible) | **The 60 s apps poll set `loading`,** so the grid swapped to a spinner and every card remounted, causing a flicker every minute. | **Fixed:** the spinner only shows on the first load, and unchanged items keep their references |
+| CL2 | Low/Med | **With `showTime` on, the header clock re-rendered every widget once a second.** | **Fixed:** separate `Clock` components, memoized widgets, and the timer pauses while the tab is hidden |
+| CL3 | Low/Med | **The calendar's 30 s `now` state re-rendered all of Home.** | **Fixed:** `useNow` lives inside the calendar components |
+| CL4 | Low | **A race could request `/api/calendar` twice on an admin load.** | **Fixed:** the fetch waits for `auth.checking` |
+| CL5 | Low | **The weather widget fetched data and opened the socket with no key set.** | **Fixed:** it only mounts when a key is set |
+| CL6 | Low | **`fetch` had no timeout, and polls could stack or reorder.** | **Fixed:** a 15 s default timeout; in-flight skip and stale-response guard |
+| CL7/CL8 | Info | **Lazy-loading the widgets would save less than 4 KB; the Skycons animation keeps running.** | Not done (minor) |
+
+### Measured results
+
+**Calendar parse.** Each time is how long one parse blocks the server.
+
+| Feed | Before | After |
+|---|---|---|
+| 2 MB, 5k events | 1.6–1.9 s | 0.15 s |
+| 5 MB, 12k events | 8.1–9.4 s | 0.26–0.30 s |
+| 10 MB, 25k events (the body cap) | 46–55 s, +168 MB heap | 0.50 s, +123 MB |
+| Daily since 2010, TZID without VTIMEZONE | 4.7 s | 0.17 s |
+| Five such series | 6.5 s | 0.25 s |
+| HOURLY since 2010 (UTC) | 1.3 s, **0 events** | 0.03 s, 241 events |
+| MINUTELY since 2015, TZID without VTIMEZONE | 41 s, **0 events** | 1.7 s, 300 events (the output cap) |
+
+**Client.** Admin, 8 apps, weather, one Pi-hole, one calendar, `showTime` on; counts over 65 s with the tab visible.
+
+| Metric | Before | After |
+|---|---|---|
+| Card DOM nodes surviving the 60 s apps poll | 0/8 | 8/8 |
+| Home / Header / Weather / Pi-hole re-renders | 4 / 69 / 69 / 70 | 0 / 0 / 0 / 0 |
+| `/api/calendar` per admin load, slow auth check | 2 | 1 |
+| Requests with no weather key | `/api/weather` plus a WebSocket | none |
+
+### Notes on the SV3 fast-forward
+
+- **Which series.** FREQ=SECONDLY, MINUTELY or HOURLY with a single RRULE, no COUNT, no BYSETPOS and no ordinal BYDAY, and only limiting BY-parts. Its DTSTART is advanced by whole multiples of `INTERVAL × unit` in wall-clock time, to just before the window.
+- **Why that is safe.** ical.js steps these rules in wall-clock fields and applies the zone afterwards, so the shifted start walks the same lattice.
+- **Fallback.** Normal iteration is used for COUNT, BYSETPOS, multiple RRULEs, an ordinal BYDAY, or a DATE start. Old RECURRENCE-ID overrides stop the jump a day before the earliest override, so one moved into the window is still found.
+- **Equivalence check.** Fast iteration was compared with full iteration on 780 generated cases:
+  - 6 start types: UTC, floating, Berlin and Los Angeles with and without VTIMEZONE, and a Windows zone name;
+  - 13 rules;
+  - windows across the 2026 EU and US DST changes;
+  - each with and without EXDATE/RDATE.
+
+  There were 0 mismatches. Smaller versions of this check are in the test suite.
+- **What remains.** A series that still exceeds the cap (for example a huge COUNT) logs one warning per calendar refresh, naming the calendar and event UIDs but never the URL.
+
+### SV4 cache design
+
+- **What is cached.** Not the raw text. After each parse, a compact event list covering `[now−1 day, now+21 days]` is kept, capped at 5,000 events (about 1 MB at most per calendar), with the sha1, ETag and Last-Modified.
+- **How the window moves.** Each request cuts its window from that list, so the window keeps moving on a 304. Once the list no longer covers the window (after about 12 days), the feed is downloaded again without validators.
+- **What remains.** A single large parse still blocks the event loop (about 0.5 s for 10 MB here). Moving parsing to a worker thread would remove that if it ever matters.
+
+### Verification
+
+- 250/250 server tests pass. The client build and typecheck are clean.
+- A Chromium end-to-end run on the final build re-checked the following:
+  - **Guest visibility:** guests get no weather or Pi-hole data from the config, the APIs or the socket (closed with 4401), and none in the browser.
+  - **Login and logout:** the widgets appear and disappear without a reload.
+  - **Earlier security fixes:** the S1 SVG XSS is still blocked, `javascript:` URLs return 400, and there are 0 CSP violations.
+
 ## Feature comparison (researched 2026-10-10)
 
 **How this was researched.** A research agent used web search and fetched project pages. GitHub's API was unreachable from this session, so star counts are approximate. Items marked (u) are unverified.
