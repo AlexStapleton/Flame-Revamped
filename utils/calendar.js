@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const ICAL = require('ical.js');
 const loadConfig = require('./loadConfig');
 const Logger = require('./Logger');
@@ -14,8 +15,15 @@ const REQUEST_TIMEOUT_MS = 15 * 1000;
 // Busy calendars with years of history can be several MB.
 const MAX_BODY_BYTES = 10 * 1024 * 1024;
 // Calendar providers refresh their published feeds slowly (Google every few
-// hours), so a few minutes is plenty and keeps big feeds cheap to serve.
-const CACHE_TTL_MS = 5 * 60 * 1000;
+// hours), so a quarter of an hour is plenty and keeps big feeds cheap to serve.
+// Failures are retried sooner.
+const CACHE_TTL_MS = 15 * 60 * 1000;
+const ERROR_TTL_MS = 5 * 60 * 1000;
+// A download is expanded once over this horizon and kept in a compact form, so
+// an unchanged feed (HTTP 304 or identical body) needs no re-parse while the
+// visible window slides along.
+const PARSE_HORIZON_MS = 21 * 24 * 60 * 60 * 1000;
+const MAX_CACHED_EVENTS = 5000;
 // Events are expanded from a day ago (the browser may be ahead of or behind
 // the server, and "Today" starts at local midnight) to the furthest day the
 // Upcoming section can show plus one.
@@ -48,14 +56,19 @@ const normalizeFeedUrl = (raw) => {
   return url.href;
 };
 
-// GET the feed as text. Messages never include the URL, because the URL is
-// the secret.
-const fetchFeed = async (url) => {
+// GET the feed. With validators from an earlier download the request is
+// conditional and an unchanged feed answers { notModified: true } without a
+// body. Otherwise { text, etag, lastModified }. Messages never include the
+// URL, because the URL is the secret.
+const fetchFeedConditional = async (url, { etag, lastModified } = {}) => {
+  const headers = { Accept: 'text/calendar, */*;q=0.5' };
+  if (etag) headers['If-None-Match'] = etag;
+  else if (lastModified) headers['If-Modified-Since'] = lastModified;
   let res;
   try {
     res = await fetch(url, {
       redirect: 'follow',
-      headers: { Accept: 'text/calendar, */*;q=0.5' },
+      headers,
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
   } catch (err) {
@@ -66,6 +79,10 @@ const fetchFeed = async (url) => {
     throw new CalendarError(
       code ? `Can't reach the calendar (${code})` : "Can't reach the calendar"
     );
+  }
+  if (res.status === 304 && (etag || lastModified)) {
+    if (res.body) await res.body.cancel().catch(() => {});
+    return { notModified: true };
   }
   if (!res.ok) {
     if (res.body) await res.body.cancel().catch(() => {});
@@ -84,8 +101,15 @@ const fetchFeed = async (url) => {
     }
     chunks.push(chunk);
   }
-  return Buffer.concat(chunks).toString('utf8');
+  return {
+    text: Buffer.concat(chunks).toString('utf8'),
+    etag: res.headers.get('etag') || undefined,
+    lastModified: res.headers.get('last-modified') || undefined,
+  };
 };
+
+// GET the feed as text.
+const fetchFeed = async (url) => (await fetchFeedConditional(url)).text;
 
 // One formatter per zone: constructing an Intl.DateTimeFormat is slow (~50us)
 // and used to happen once per recurrence occurrence. Zones are few, but the
@@ -213,6 +237,7 @@ const toOutput = (item, startTime, endTime, from, to, fallbackTz) => {
     end: end.value,
     allDay: start.allDay,
     sortMs: start.ms,
+    endMs,
   };
 };
 
@@ -267,12 +292,11 @@ const fastForwardStart = (master, beforeMs) => {
 // Parse an iCal feed and list the events (recurring ones expanded) that
 // overlap [from, to) (epoch ms). Throws CalendarError on a feed that isn't
 // iCal. Pure apart from registering the feed's VTIMEZONEs with ical.js.
-const parseEvents = (
+const parseCalendar = (
   text,
   {
     from,
     to,
-    limit = MAX_EVENTS_PER_CALENDAR,
     // Called once with the UIDs of series that hit the iteration cap before
     // reaching the end of the window (their later events are missing).
     onTruncated = null,
@@ -411,56 +435,131 @@ const parseEvents = (
   if (truncated.length && onTruncated) onTruncated(truncated);
 
   out.sort((a, b) => a.sortMs - b.sortMs || a.title.localeCompare(b.title));
-  return out.slice(0, limit);
+  return out;
 };
+
+const parseEvents = (text, options = {}) =>
+  parseCalendar(text, options).slice(0, options.limit ?? MAX_EVENTS_PER_CALENDAR);
 
 // One log line per calendar refresh, never the feed URL (it is a secret).
 const truncationMessage = (label, uids) => {
   const shown = uids.slice(0, 3).join(', ');
   const more = uids.length > 3 ? ` and ${uids.length - 3} more` : '';
-  return `Calendar ${label}: recurring event(s) ${shown}${more} hit the ${MAX_ITERATIONS}-occurrence limit before the end of the visible window; later occurrences are missing`;
+  return `Calendar ${label}: recurring event(s) ${shown}${more} hit the ${MAX_ITERATIONS}-occurrence limit before the end of the parsed range; later occurrences are missing`;
 };
 
-// Client for ONE calendar: caches the expanded events so many open dashboards
-// cost one download per window.
+// Feeds are parsed one at a time (downloads still overlap): parsing is
+// synchronous, so several big feeds parsed back to back would stack up into
+// one long stall. The event loop gets a turn between two parses.
+let parseChain = Promise.resolve();
+const parseExclusive = (task) => {
+  const run = parseChain.then(() => new Promise((r) => setImmediate(r))).then(task);
+  parseChain = run.catch(() => {});
+  return run;
+};
+
+const sha1 = (text) => crypto.createHash('sha1').update(text).digest('hex');
+
+// What the browser gets for the window around `at`, from a compact parsed
+// copy, or null when that copy does not cover the window (so it has to be
+// rebuilt from a fresh download). Pure.
+const windowEvents = (parsed, at) => {
+  const from = at - WINDOW_BEFORE_MS;
+  const to = at + WINDOW_AFTER_MS;
+  if (!parsed || from < parsed.from) return null;
+  const list = parsed.events.filter((e) => e.endMs > from && e.sortMs < to);
+  if (parsed.to < to && list.length < MAX_EVENTS_PER_CALENDAR) return null;
+  return list.slice(0, MAX_EVENTS_PER_CALENDAR).map(({ sortMs, endMs, ...e }) => e);
+};
+
+// Client for ONE calendar. Many open dashboards cost one download per TTL, and
+// a feed that has not changed (HTTP 304, or the same bytes) costs no parsing:
+// the previous parse is kept as a compact event list covering the next 21
+// days and the visible window is cut from it per request. Memory per calendar
+// is that list (at most MAX_CACHED_EVENTS small objects), never the feed text.
 const createCalendarClient = ({
-  fetchText = fetchFeed,
+  fetchText = fetchFeedConditional,
   now = Date.now,
   ttlMs = CACHE_TTL_MS,
+  errorTtlMs = ERROR_TTL_MS,
   onError = (err) => logger.log(`Calendar: ${err.message}`, 'WARN'),
   onWarn = (message) => logger.log(message, 'WARN'),
 } = {}) => {
-  let cache = null; // { at, url, value } or { at, url, error }
+  let cache = null; // { at, url } or { at, url, error }: when to ask the host again
+  let parsed = null; // { url, from, to, events, hash, etag, lastModified }
   let inFlight = null;
 
-  const load = async (url, label) => {
-    const at = now();
-    let text;
+  const download = async (url, validators) => {
+    let res;
     try {
-      text = await fetchText(url);
+      res = await fetchText(url, validators);
     } catch (err) {
       if (err instanceof CalendarError) throw err;
       throw new CalendarError("Can't reach the calendar");
     }
-    return parseEvents(text, {
-      from: at - WINDOW_BEFORE_MS,
-      to: at + WINDOW_AFTER_MS,
-      onTruncated: (uids) => onWarn(truncationMessage(label, uids)),
-    });
+    // A plain string (no validators) is accepted too.
+    return typeof res === 'string' ? { text: res } : res;
+  };
+
+  const load = async (url, label) => {
+    const previous = parsed && parsed.url === url ? parsed : null;
+    let res = await download(
+      url,
+      previous ? { etag: previous.etag, lastModified: previous.lastModified } : {}
+    );
+    if (res.notModified) {
+      if (previous) {
+        const value = windowEvents(previous, now());
+        if (value) return value;
+      }
+      // The kept copy no longer covers the window (or never existed): the
+      // body is needed after all.
+      res = await download(url, {});
+    }
+    const hash = sha1(res.text);
+    if (previous && previous.hash === hash) {
+      previous.etag = res.etag;
+      previous.lastModified = res.lastModified;
+      const value = windowEvents(previous, now());
+      if (value) return value;
+    }
+    const at = now();
+    const from = at - WINDOW_BEFORE_MS;
+    let to = at + PARSE_HORIZON_MS;
+    let events = await parseExclusive(() =>
+      parseCalendar(res.text, {
+        from,
+        to,
+        onTruncated: (uids) => onWarn(truncationMessage(label, uids)),
+      })
+    );
+    if (events.length > MAX_CACHED_EVENTS) {
+      // Only what comes before the cut is certain to be complete.
+      to = events[MAX_CACHED_EVENTS - 1].sortMs;
+      events = events.filter((e) => e.sortMs < to);
+    }
+    parsed = { url, from, to, events, hash, etag: res.etag, lastModified: res.lastModified };
+    return windowEvents(parsed, at);
   };
 
   // Resolves to the events (without sortMs), throws CalendarError on failure.
+  // `fresh` skips the TTL (the host is still asked with validators). `label`
+  // names the calendar in log lines.
   const getEvents = async (url, { fresh = false, label = 'calendar' } = {}) => {
-    if (!fresh && cache && cache.url === url && now() - cache.at < ttlMs) {
-      if (cache.error) throw cache.error;
-      return cache.value;
+    if (!fresh && cache && cache.url === url) {
+      const age = now() - cache.at;
+      if (cache.error) {
+        if (age < errorTtlMs) throw cache.error;
+      } else if (age < ttlMs) {
+        const value = windowEvents(parsed && parsed.url === url ? parsed : null, now());
+        if (value) return value;
+      }
     }
     if (inFlight && inFlight.url === url) return inFlight.promise;
 
     const promise = load(url, label)
-      .then((events) => {
-        const value = events.map(({ sortMs, ...e }) => e);
-        cache = { at: now(), url, value };
+      .then((value) => {
+        cache = { at: now(), url };
         return value;
       })
       .catch((error) => {
@@ -568,6 +667,7 @@ module.exports = {
   normalizeFeedUrl,
   parseEvents,
   fetchFeed,
+  fetchFeedConditional,
   CalendarError,
   MAX_CALENDARS,
   CACHE_TTL_MS,

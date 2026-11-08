@@ -10,6 +10,7 @@ const {
   fetchFeed,
   CalendarError,
   MAX_CALENDARS,
+  CACHE_TTL_MS,
 } = require('../utils/calendar');
 const { buildHandler, GENERIC_ERROR } = require('../controllers/calendar/getCalendar');
 const { maskConfigForViewer } = require('../controllers/config/getConfig');
@@ -458,7 +459,7 @@ test('client caches for the TTL and shares one in-flight download', async () => 
   assert.strictEqual(downloads, 1);
   await client.getEvents('u', { fresh: true });
   assert.strictEqual(downloads, 2);
-  t += 10 * 60e3;
+  t += 20 * 60e3;
   await client.getEvents('u');
   assert.strictEqual(downloads, 3);
   await client.getEvents('other');
@@ -648,4 +649,191 @@ test('fetchFeed returns the body, follows redirects, and keeps the link out of e
     assert.ok(!e.message.includes('SECRET'));
     return true;
   });
+});
+
+// Conditional requests, body hashing and the compact parse cache.
+const ICAL = require('ical.js');
+const countParses = async (fn) => {
+  const original = ICAL.parse;
+  let parses = 0;
+  ICAL.parse = function (...args) {
+    parses++;
+    return original.apply(this, args);
+  };
+  try {
+    await fn();
+  } finally {
+    ICAL.parse = original;
+  }
+  return parses;
+};
+
+const feedWithTitle = (title) =>
+  ics(vevent(['UID:1', 'DTSTART:20261011T150000Z', `SUMMARY:${title}`]));
+
+test('a 304 reuses the parsed feed: If-None-Match is sent and nothing is re-parsed', async () => {
+  const seen = [];
+  await withServer(
+    (req, res) => {
+      seen.push(req.headers['if-none-match'] || null);
+      if (req.headers['if-none-match'] === '"v1"') {
+        res.writeHead(304, { ETag: '"v1"' });
+        return res.end();
+      }
+      res.writeHead(200, { ETag: '"v1"', 'Content-Type': 'text/calendar' });
+      res.end(SIMPLE);
+    },
+    async (base) => {
+      let t = NOW;
+      const client = createCalendarClient({ now: () => t });
+      const url = `${base}/cal.ics`;
+      let first;
+      const parses = await countParses(async () => {
+        first = await client.getEvents(url);
+        t += 20 * 60e3; // TTL expired: asks the host again
+        const second = await client.getEvents(url);
+        assert.deepStrictEqual(second, first);
+        t += 20 * 60e3;
+        await client.getEvents(url, { fresh: true }); // fresh is conditional too
+      });
+      assert.strictEqual(parses, 1);
+      assert.deepStrictEqual(seen, [null, '"v1"', '"v1"']);
+      assert.strictEqual(first[0].title, 'Dentist');
+    }
+  );
+});
+
+test('a 304 keeps the visible window moving with time', async () => {
+  const feed = ics(
+    vevent(['UID:a', 'DTSTART:20261011T150000Z', 'SUMMARY:Soon']),
+    vevent(['UID:b', 'DTSTART:20261025T150000Z', 'SUMMARY:Later']),
+    vevent(['UID:w', 'DTSTART:20261005T090000Z', 'RRULE:FREQ=WEEKLY', 'SUMMARY:Weekly'])
+  );
+  let hits = 0;
+  await withServer(
+    (req, res) => {
+      hits++;
+      if (req.headers['if-none-match']) {
+        res.writeHead(304);
+        return res.end();
+      }
+      res.writeHead(200, { ETag: '"e"' });
+      res.end(feed);
+    },
+    async (base) => {
+      let t = NOW;
+      const client = createCalendarClient({ now: () => t });
+      const titles = async () => (await client.getEvents(`${base}/x`)).map((e) => e.title);
+      // Window Oct 10 12:00Z - Oct 20 12:00Z.
+      assert.deepStrictEqual(await titles(), ['Soon', 'Weekly', 'Weekly']);
+      t += 7 * 24 * 3600e3; // a week later, same feed (window Oct 17 - Oct 27)
+      assert.deepStrictEqual(await titles(), ['Weekly', 'Later', 'Weekly']);
+      // Past the parsed range: the body is fetched again, unconditionally.
+      t += 30 * 24 * 3600e3;
+      assert.ok((await titles()).length > 0);
+      assert.ok(hits >= 4);
+    }
+  );
+});
+
+test('a server without validators: an identical body is not re-parsed, a changed one is', async () => {
+  let body = feedWithTitle('One');
+  let hits = 0;
+  await withServer(
+    (req, res) => {
+      hits++;
+      assert.strictEqual(req.headers['if-none-match'], undefined);
+      assert.strictEqual(req.headers['if-modified-since'], undefined);
+      res.writeHead(200);
+      res.end(body);
+    },
+    async (base) => {
+      let t = NOW;
+      const client = createCalendarClient({ now: () => t });
+      const url = `${base}/p.ics`;
+      const parses = await countParses(async () => {
+        assert.strictEqual((await client.getEvents(url))[0].title, 'One');
+        t += 20 * 60e3;
+        assert.strictEqual((await client.getEvents(url))[0].title, 'One');
+        assert.strictEqual(hits, 2);
+        body = feedWithTitle('Two');
+        t += 20 * 60e3;
+        assert.strictEqual((await client.getEvents(url))[0].title, 'Two');
+      });
+      assert.strictEqual(parses, 2);
+      assert.strictEqual(hits, 3);
+    }
+  );
+});
+
+test('Last-Modified is used when there is no ETag', async () => {
+  const seen = [];
+  await withServer(
+    (req, res) => {
+      seen.push(req.headers['if-modified-since'] || null);
+      if (req.headers['if-modified-since']) {
+        res.writeHead(304);
+        return res.end();
+      }
+      res.writeHead(200, { 'Last-Modified': 'Wed, 07 Oct 2026 10:00:00 GMT' });
+      res.end(SIMPLE);
+    },
+    async (base) => {
+      let t = NOW;
+      const client = createCalendarClient({ now: () => t });
+      await client.getEvents(`${base}/l`);
+      t += 20 * 60e3;
+      assert.strictEqual((await client.getEvents(`${base}/l`))[0].title, 'Dentist');
+      assert.deepStrictEqual(seen, [null, 'Wed, 07 Oct 2026 10:00:00 GMT']);
+    }
+  );
+});
+
+test('the TTL is 15 minutes and fresh=true bypasses it', async () => {
+  assert.strictEqual(CACHE_TTL_MS, 15 * 60 * 1000);
+  let t = NOW;
+  let downloads = 0;
+  const client = createCalendarClient({
+    now: () => t,
+    fetchText: async () => {
+      downloads++;
+      return SIMPLE;
+    },
+  });
+  await client.getEvents('u');
+  t += 14 * 60e3;
+  await client.getEvents('u');
+  assert.strictEqual(downloads, 1);
+  await client.getEvents('u', { fresh: true });
+  assert.strictEqual(downloads, 2);
+  t += 16 * 60e3;
+  await client.getEvents('u');
+  assert.strictEqual(downloads, 3);
+});
+
+test('several calendars are parsed one after another, with the event loop getting a turn between', async () => {
+  const original = ICAL.parse;
+  const log = [];
+  ICAL.parse = function (...args) {
+    log.push('parse');
+    return original.apply(this, args);
+  };
+  let running = true;
+  const tick = () => {
+    if (!running) return;
+    log.push('tick');
+    setImmediate(tick);
+  };
+  setImmediate(tick);
+  try {
+    const clients = [1, 2, 3].map(() =>
+      createCalendarClient({ now: () => NOW, fetchText: async () => SIMPLE })
+    );
+    await Promise.all(clients.map((c) => c.getEvents('u')));
+  } finally {
+    running = false;
+    ICAL.parse = original;
+  }
+  assert.strictEqual(log.filter((x) => x === 'parse').length, 3);
+  assert.ok(!log.join(',').includes('parse,parse'), log.join(','));
 });

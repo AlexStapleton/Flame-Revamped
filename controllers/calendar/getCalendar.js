@@ -32,7 +32,7 @@ const buildHandler = ({ fresh, manager = calendars, getConfig = loadConfig }) =>
     });
   });
 
-// @desc      Get upcoming events (each calendar cached for 5 minutes)
+// @desc      Get upcoming events (each calendar cached for 15 minutes)
 // @route     GET /api/calendar
 // @access    Public unless calendarHideFromGuests (error details only for the admin)
 const getCalendar = buildHandler({ fresh: false });
