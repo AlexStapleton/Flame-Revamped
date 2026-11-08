@@ -22,9 +22,15 @@ export interface CalendarState {
 export const useCalendar = (): CalendarState => {
   const { loading, config } = useSelector((state: State) => state.config);
   const isAuthenticated = useSelector((state: State) => state.auth.isAuthenticated);
+  // True while a stored token is still being validated on page load.
+  const checkingAuth = useSelector((state: State) => state.auth.checking);
 
+  // Wait for the token check: fetching first as a guest and again once the
+  // token is accepted would request the calendar twice on every admin load. A
+  // real login/logout later still changes the key and refetches.
   const enabled =
     !loading &&
+    !checkingAuth &&
     Array.isArray(config.calendars) &&
     config.calendars.length > 0 &&
     (config.calendarShowNext || config.calendarShowUpcoming);
