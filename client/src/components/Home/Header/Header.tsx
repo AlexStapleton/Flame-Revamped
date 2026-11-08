@@ -21,11 +21,19 @@ interface Props {
 }
 
 export const Header = ({ calendar }: Props): JSX.Element => {
-  const { hideHeader, hideDate, showTime, calendarShowNext } = useSelector(
+  const {
+    hideHeader,
+    hideDate,
+    showTime,
+    calendarShowNext,
+    WEATHER_API_KEY,
+  } = useSelector(
     (state: State) => state.config.config
   );
   // Pi-hole and weather are only for logged-in users (the server enforces
-  // this too). Not mounting them means guests don't even request the data.
+  // this too). Not mounting them means guests don't even request the data. The
+  // server sends the real key only to admins, so an empty key also means
+  // weather is off: skip the request and the WebSocket.
   const isAuthenticated = useSelector(
     (state: State) => state.auth.isAuthenticated
   );
@@ -46,7 +54,7 @@ export const Header = ({ calendar }: Props): JSX.Element => {
           </span>
           <span className={classes.HeaderWidgets}>
             {isAuthenticated && <PiholeWidget />}
-            {isAuthenticated && <WeatherWidget />}
+            {isAuthenticated && !!WEATHER_API_KEY && <WeatherWidget />}
           </span>
         </span>
       )}
