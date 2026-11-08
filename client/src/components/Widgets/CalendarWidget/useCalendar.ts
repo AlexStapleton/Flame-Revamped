@@ -52,14 +52,25 @@ export const useCalendar = (): CalendarState => {
     let cancelled = false;
     let poll: number | null = null;
 
+    // Skip a tick while a request is still running, and ignore an answer that
+    // a newer request has overtaken.
+    let inFlight = false;
+    let seq = 0;
+
     const load = () => {
+      if (inFlight) return;
+      inFlight = true;
+      const mine = ++seq;
       http
         .get<ApiResponse<CalendarData>>('/api/calendar', { headers: applyAuth() })
         .then((res) => {
-          if (!cancelled) setData(res.data.data || null);
+          if (!cancelled && mine === seq) setData(res.data.data || null);
         })
         .catch(() => {
           // Flame itself is unreachable: keep the last events on screen.
+        })
+        .finally(() => {
+          inFlight = false;
         });
     };
 

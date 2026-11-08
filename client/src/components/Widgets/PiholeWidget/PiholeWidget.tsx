@@ -102,17 +102,27 @@ const PiholeWidgetComponent = (): JSX.Element | null => {
 
     let cancelled = false;
     let timer: number | null = null;
+    // Skip a tick while a request is still running, and ignore an answer that
+    // a newer request has overtaken.
+    let inFlight = false;
+    let seq = 0;
 
     const load = () => {
+      if (inFlight) return;
+      inFlight = true;
+      const mine = ++seq;
       http
         .get<ApiResponse<PiholeResult[]>>('/api/pihole', {
           headers: applyAuth(),
         })
         .then((res) => {
-          if (!cancelled) setResults(res.data.data || []);
+          if (!cancelled && mine === seq) setResults(res.data.data || []);
         })
         .catch(() => {
           // Flame itself is unreachable: keep the last results on screen.
+        })
+        .finally(() => {
+          inFlight = false;
         });
     };
 
