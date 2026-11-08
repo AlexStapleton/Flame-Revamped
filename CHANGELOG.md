@@ -5,6 +5,12 @@ Weather and Pi-hole are now only shown to logged-in users, and calendars are hid
 - Visitors who aren't logged in no longer see the weather or Pi-hole widgets. This is enforced by the server, not just hidden: `/api/weather` and `/api/pihole` return nothing to them, the visitor copy of the settings leaves out the weather key, location and Pi-holes, and the live weather connection (`/socket`) only sends updates after it authenticates with the login token. There is no setting to show them to visitors.
 - Calendars are hidden from visitors by default. Existing installs are switched to hidden once on upgrade, because earlier versions stored "visible" for everyone. To show events to visitors, set Settings > Calendar > "Visitors who aren't logged in" to "See events"; that choice is kept from then on.
 
+**Performance**
+- Calendars: a large feed (several years of history) could freeze the whole server while it was parsed, for up to about a minute on a 10 MB feed, every 5 minutes. Parsing is now about 100 times faster (10 MB: 46 s to 0.5 s). Each calendar is cached for 15 minutes, a feed that hasn't changed (HTTP 304 or identical content) isn't parsed again, and calendars are parsed one at a time.
+- Calendars: hourly and minutely repeating events that started years ago now show up. Before, they showed no events at all. A series that is still too long to expand logs a warning instead of being cut off silently.
+- The app grid no longer flashes to a spinner and back every minute while logged in, and the header clock no longer re-renders the widgets every second.
+- The weather is only fetched from WeatherAPI while a dashboard is open, and refreshed when one is opened. The Pi-hole widget's two v6 requests run in parallel. Browser requests time out after 15 seconds, and polls no longer pile up.
+
 ### v2.0.0 (2026-10-11)
 Calendar widget, and a weather widget with a 3-day forecast and alerts. The major version marks a feature milestone: there are no breaking changes, and upgrading from any 1.x release needs nothing beyond pulling the new image. Calendar setup steps are in the README under "Calendar widget".
 
@@ -14,7 +20,7 @@ Calendar widget, and a weather widget with a 3-day forecast and alerts. The majo
 
 **Changes**
 - New calendar widget that reads one or more calendars (up to 10) from their private iCal links, such as Google's "Secret address in iCal format" or Outlook's published ICS link. It shows the next event on one line under the greeting ("10:30 Dentist · in 2h 15m"), and an "Upcoming" section above Applications with one column per day and a colored dot per calendar. Both parts can be turned off under Settings > Calendar, and the Upcoming section shows 1 to 7 days (4 by default).
-- Flame's server downloads the calendars through `GET /api/calendar` and expands recurring events (including moved and cancelled occurrences) with the `ical.js` library. Each calendar is cached for 15 minutes, and a feed that has not changed (HTTP 304 or identical content) is not parsed again. `GET /api/calendar/update` (admin only) skips the cache and is used by the settings page to test the links.
+- Flame's server downloads the calendars through `GET /api/calendar` and expands recurring events (including moved and cancelled occurrences) with the `ical.js` library. Each calendar is cached for 5 minutes. `GET /api/calendar/update` (admin only) skips the cache and is used by the settings page to test the links.
 - New config keys: `calendars` (name and color per calendar) and `CALENDAR_SECRETS` (the iCal links by calendar id). `CALENDAR_SECRETS` is handled like the other secrets: hidden from visitors who aren't logged in, left out of backup exports, kept when a backup is restored, and never written to the log or put in error messages. With `calendarHideFromGuests` on, visitors who aren't logged in get no events at all.
 - The weather widget now shows feels-like, today's high and low, a 3-day forecast and a severe weather alert line that opens the alert's details. Hovering or focusing it lists humidity, cloud, chance of rain, wind and gusts, UV, air quality, pressure, visibility, sunrise and sunset.
 - Flame calls WeatherAPI's `forecast.json` (3 days, air quality, alerts) instead of `current.json`. It is still one call per 15 minutes, about 3,000 a month on the free plan's 100,000.
