@@ -1,5 +1,8 @@
 const asyncWrapper = require('../../middleware/asyncWrapper');
 const Weather = require('../../models/Weather');
+const refreshWeatherIfStale = require('../../utils/refreshWeatherIfStale');
+const Logger = require('../../utils/Logger');
+const logger = new Logger();
 
 // @desc      Get latest weather status
 // @route     GET /api/weather
@@ -19,6 +22,13 @@ const getWeather = asyncWrapper(async (req, res, next) => {
     success: true,
     data: weather,
   });
+
+  // The scheduled fetch pauses while no dashboard is open. When this load finds
+  // the stored weather stale, refresh in the background; the socket pushes the
+  // new data to this dashboard. Concurrent loads share one refresh.
+  refreshWeatherIfStale().catch((err) =>
+    logger.log(`Weather refresh on view failed: ${err.message}`, 'ERROR')
+  );
 });
 
 module.exports = getWeather;

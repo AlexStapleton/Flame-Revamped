@@ -25,9 +25,12 @@ const startWatcher = () => {
   if (watcherStarted) return;
   watcherStarted = true;
   try {
-    fs.watch(CONFIG_PATH, () => {
+    const watcher = fs.watch(CONFIG_PATH, () => {
       cache = null;
     });
+    // Cache invalidation only: the watcher must not keep the process alive
+    // (the HTTP server does that), or a script or test that reads config never exits.
+    watcher.unref();
   } catch {
     watcherStarted = false;
   }

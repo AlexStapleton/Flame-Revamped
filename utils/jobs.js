@@ -1,7 +1,8 @@
 const schedule = require('node-schedule');
 const refreshWeather = require('./refreshWeather');
+const refreshWeatherIfStale = require('./refreshWeatherIfStale');
+const createWeatherTick = require('./weatherTick');
 const clearWeatherData = require('./clearWeatherData');
-const Weather = require('../models/Weather');
 const syncApps = require('./syncApps');
 const createSyncTick = require('./syncTick');
 const runStatusChecks = require('./runStatusChecks');
@@ -11,35 +12,26 @@ const Logger = require('./Logger');
 const loadConfig = require('./loadConfig');
 const logger = new Logger();
 
-const WEATHER_INTERVAL_MS = 15 * 60 * 1000;
-
-const refreshWeatherIfStale = async () => {
-  const { WEATHER_API_KEY } = await loadConfig();
-  if (!WEATHER_API_KEY) return;
-  const latest = await Weather.findOne({ order: [['id', 'DESC']] });
-  const fresh =
-    latest &&
-    latest.getDataValue('forecast') &&
-    Date.now() - new Date(latest.updatedAt).getTime() < WEATHER_INTERVAL_MS;
-  if (!fresh) await refreshWeather();
-};
-
 module.exports = async function () {
   const { statusCheckInterval } = await loadConfig();
 
+  // One idle window shared by weather, app sync and status checks.
+  const intervalMs = Math.max(15, Number(statusCheckInterval) || 60) * 1000;
+  const idleWindowMs = Math.max(intervalMs * 2, 5 * 60 * 1000);
+
   // Weather jobs are always scheduled. The key is read on every run, so a key
   // added in Settings takes effect without a restart.
-  // Update weather data every 15 minutes.
-  schedule.scheduleJob('updateWeather', '0 */15 * * * *', async () => {
-    try {
-      const { WEATHER_API_KEY } = await loadConfig();
-      if (!WEATHER_API_KEY) return;
-
-      await refreshWeather();
-    } catch (err) {
-      logger.log(err.message, 'ERROR');
-    }
+  // Update weather every 15 minutes, but only while a dashboard is being
+  // viewed. Opening a dashboard after an idle period refreshes stale weather
+  // (see GET /api/weather), so the widget does not wait for this tick.
+  const weatherTick = createWeatherTick({
+    isActive,
+    idleWindowMs,
+    loadConfig,
+    refresh: refreshWeather,
+    onError: (err) => logger.log(err.message, 'ERROR'),
   });
+  schedule.scheduleJob('updateWeather', '0 */15 * * * *', weatherTick);
 
   // Fetch once at startup when the stored weather is older than one tick or
   // predates the forecast fields (first start after upgrading), so the widget
@@ -58,8 +50,6 @@ module.exports = async function () {
   // run that is still in flight. The sync reads the dockerApps/kubernetesApps
   // flags each run, so toggling them in settings takes effect without a restart.
   // The startup sync below and POST /api/apps/sync always run.
-  const intervalMs = Math.max(15, Number(statusCheckInterval) || 60) * 1000;
-  const idleWindowMs = Math.max(intervalMs * 2, 5 * 60 * 1000);
   const syncTick = createSyncTick({
     isActive,
     syncApps,
@@ -81,7 +71,6 @@ module.exports = async function () {
   // shouldn't keep hitting every monitored host. A view resumes it on the next
   // tick. The window is generous relative to the poll cadence so a normally-open
   // tab never trips it.
-  // (idleWindowMs is defined above, before the sync schedule.)
   const statusTick = createStatusTick({
     isActive,
     run: runStatusChecks,
